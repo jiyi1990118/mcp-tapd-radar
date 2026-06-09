@@ -230,6 +230,19 @@ Then in your MCP config:
 > Create a webhook to notify https://my-server.com/hook when stories are created or updated
 > Delete webhook wh_1
 
+### Image Download
+
+| Tool | Description | Required Params |
+|---|---|---|
+| `tapd_download_image` | Download TAPD images that require authentication (e.g. prototype screenshots, mockups), returns base64 for AI analysis | `url` |
+
+**Usage examples:**
+
+> The story description has a prototype image — download it and analyze the UI features
+> Help me look at the screenshot in this TAPD bug and describe the UI design
+> Download this TAPD image https://api.tapd.cn/.../image/... and tell me what it shows
+> What error is shown in this bug screenshot? Help me analyze it
+
 ### Health Check
 
 | Tool | Description | Required Params |

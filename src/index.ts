@@ -14,6 +14,7 @@ import { registerWorkspaceTools } from './tools/workspace.js';
 import { registerCommentTools } from './tools/comment.js';
 import { registerUserTools } from './tools/user.js';
 import { registerPingTool } from './tools/ping.js';
+import { registerImageTools } from './tools/image.js';
 import { registerResources } from './resources/workspace.js';
 import { registerPrompts } from './prompts/templates.js';
 import { logger } from './utils/logger.js';
@@ -62,6 +63,8 @@ async function main() {
   registerCommentTools(server, client);
   registerUserTools(server, client);
   registerPingTool(server, client);
+  registerImageTools(server, client);
+  registerImageTools(server, client);
 
   registerResources(server, client);
   registerPrompts(server);
