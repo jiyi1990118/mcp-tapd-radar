@@ -100,6 +100,8 @@ npm run build
 
 > 仅 `TAPD_CLIENT_ID` 和 `TAPD_CLIENT_SECRET` 为必填，其余可选。所有参数通过 `env` 字段注入，无需 `.env` 文件。
 
+> **权限问题？** 如果遇到 API 权限错误，请前往 [TAPD 开放平台应用权限设置](https://open.tapd.cn/admin/4002/permission) 配置你的应用权限。
+
 ---
 
 ## 功能手册

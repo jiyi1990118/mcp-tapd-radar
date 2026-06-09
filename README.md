@@ -100,6 +100,8 @@ Then in your MCP config:
 
 > Only `TAPD_CLIENT_ID` and `TAPD_CLIENT_SECRET` are required. All parameters are injected via the `env` field — no `.env` file needed.
 
+> **Permission issues?** If you encounter API permission errors, go to [TAPD Open Platform App Permissions](https://open.tapd.cn/admin/4002/permission) to configure your app permissions.
+
 ---
 
 ## Function Reference

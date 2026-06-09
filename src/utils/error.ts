@@ -20,11 +20,14 @@ export class TapdError extends Error {
   }
 }
 
+export const TAPD_PERMISSION_TIP = 'If you encounter permission errors, please go to https://open.tapd.cn/admin/4002/permission to configure the application permissions.';
+
 export function classifyHttpError(status: number, info: string): TapdError {
   switch (status) {
     case 401:
-    case 403:
       return new TapdError(TapdErrorCode.AUTH_FAILED, `Authentication failed: ${info}`);
+    case 403:
+      return new TapdError(TapdErrorCode.AUTH_FAILED, `Permission denied: ${info}. ${TAPD_PERMISSION_TIP}`);
     case 404:
       return new TapdError(TapdErrorCode.NOT_FOUND, `Resource not found: ${info}`);
     case 429:

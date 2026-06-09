@@ -1,6 +1,6 @@
 import { TapdAuthManager } from '../auth/TapdAuthManager.js';
 import { TapdApiResponse, TapdConfig } from '../types/tapd.js';
-import { TapdError, TapdErrorCode, classifyHttpError } from '../utils/error.js';
+import { TapdError, TapdErrorCode, classifyHttpError, TAPD_PERMISSION_TIP } from '../utils/error.js';
 import { logger } from '../utils/logger.js';
 
 export class TapdApiClient {
@@ -74,7 +74,11 @@ export class TapdApiClient {
       const result = await response.json() as TapdApiResponse<T>;
 
       if (result.status !== 1) {
-        throw new TapdError(TapdErrorCode.UNKNOWN, `API error: ${result.info}`);
+        const msg = result.info || '';
+        const permissionKeywords = ['permission', '权限', 'no access', 'forbidden', 'unauthorized'];
+        const isPermissionError = permissionKeywords.some(kw => msg.toLowerCase().includes(kw));
+        const suffix = isPermissionError ? ` ${TAPD_PERMISSION_TIP}` : '';
+        throw new TapdError(TapdErrorCode.UNKNOWN, `API error: ${msg}${suffix}`);
       }
 
       return result.data;
