@@ -1,0 +1,65 @@
+{
+  "name": "@npm_xiyuan/mcp-tapd-radar",
+  "version": "1.0.0",
+  "description": "TAPD MCP Server - AI assistant integration for TAPD project management",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "mcp-tapd-radar": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "lint": "eslint src/",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "tapd",
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "claude",
+    "project-management",
+    "bug-tracking",
+    "agile"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jiyi1990118/mcp-tapd-radar.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jiyi1990118/mcp-tapd-radar/issues"
+  },
+  "homepage": "https://github.com/jiyi1990118/mcp-tapd-radar#readme",
+  "files": [
+    "dist",
+    "README.md",
+    "README.zh.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "dotenv": "^16.4.7",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5",
+    "@eslint/js": "^9.19.0",
+    "typescript-eslint": "^8.23.0",
+    "eslint": "^9.19.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
