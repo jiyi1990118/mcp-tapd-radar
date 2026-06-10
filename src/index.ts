@@ -64,7 +64,6 @@ async function main() {
   registerUserTools(server, client);
   registerPingTool(server, client);
   registerImageTools(server, client);
-  registerImageTools(server, client);
 
   registerResources(server, client);
   registerPrompts(server);

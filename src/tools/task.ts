@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { TapdApiClient } from '../api/TapdApiClient.js';
 import { QueryBuilder } from '../api/QueryBuilder.js';
 import { convertDataToArray, pickDefined } from '../utils/helpers.js';
+import { buildTapdDetailContent, getTapdClientAuth } from '../utils/tapdImages.js';
 
 const TASK_FIELDS = [
   'name', 'description', 'status', 'owner', 'priority', 'iteration_id',
@@ -73,7 +74,7 @@ export function registerTaskTools(server: McpServer, client: TapdApiClient): voi
         const data = await client.get<Record<string, unknown>>('/tasks', params);
         const task = data ? Object.values(data)[0] : null;
         if (!task) return { content: [{ type: 'text', text: `Task ${args.task_id} not found` }], isError: true };
-        return { content: [{ type: 'text', text: JSON.stringify(task, null, 2) }] };
+        return { content: await buildTapdDetailContent(task, getTapdClientAuth(client)) };
       } catch (error) {
         return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
       }

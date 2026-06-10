@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { TapdApiClient } from '../api/TapdApiClient.js';
 import { QueryBuilder } from '../api/QueryBuilder.js';
 import { convertDataToArray, pickDefined } from '../utils/helpers.js';
+import { buildTapdDetailContent, getTapdClientAuth } from '../utils/tapdImages.js';
 
 const STORY_FIELDS = [
   'name', 'description', 'status', 'owner', 'priority', 'iteration_id',
@@ -75,7 +76,7 @@ export function registerStoryTools(server: McpServer, client: TapdApiClient): vo
         const data = await client.get<Record<string, unknown>>('/stories', params);
         const story = data ? Object.values(data)[0] : null;
         if (!story) return { content: [{ type: 'text', text: `Story ${args.story_id} not found` }], isError: true };
-        return { content: [{ type: 'text', text: JSON.stringify(story, null, 2) }] };
+        return { content: await buildTapdDetailContent(story, getTapdClientAuth(client)) };
       } catch (error) {
         return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
       }

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { TapdApiClient } from '../api/TapdApiClient.js';
 import { QueryBuilder } from '../api/QueryBuilder.js';
 import { convertDataToArray, pickDefined } from '../utils/helpers.js';
+import { buildTapdDetailContent, getTapdClientAuth } from '../utils/tapdImages.js';
 
 const BUG_FIELDS = [
   'title', 'description', 'severity', 'priority', 'current_owner', 'status',
@@ -73,7 +74,7 @@ export function registerBugTools(server: McpServer, client: TapdApiClient): void
         const data = await client.get<Record<string, unknown>>('/bugs', params);
         const bug = data ? Object.values(data)[0] : null;
         if (!bug) return { content: [{ type: 'text', text: `Bug ${args.bug_id} not found` }], isError: true };
-        return { content: [{ type: 'text', text: JSON.stringify(bug, null, 2) }] };
+        return { content: await buildTapdDetailContent(bug, getTapdClientAuth(client)) };
       } catch (error) {
         return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
       }
