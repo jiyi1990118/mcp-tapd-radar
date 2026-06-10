@@ -4,6 +4,7 @@ import { TapdApiClient } from '../api/TapdApiClient.js';
 import { QueryBuilder } from '../api/QueryBuilder.js';
 import { convertDataToArray, pickDefined } from '../utils/helpers.js';
 import { buildTapdDetailContent, getTapdClientAuth } from '../utils/tapdImages.js';
+import { buildCountResponse, buildErrorResponse, buildListResponse, buildOperationResponse, toMcpError, toMcpText } from '../utils/response.js';
 
 const TASK_FIELDS = [
   'name', 'description', 'status', 'owner', 'priority', 'iteration_id',
@@ -48,9 +49,17 @@ export function registerTaskTools(server: McpServer, client: TapdApiClient): voi
         if (args.fields) qb.add('fields', args.fields);
 
         const data = await client.get<Record<string, unknown>>('/tasks', Object.fromEntries(new URLSearchParams(qb.build())));
-        return { content: [{ type: 'text', text: JSON.stringify(convertDataToArray(data), null, 2) }] };
+        return toMcpText(buildListResponse({
+          tool: 'tapd_list_tasks',
+          entityType: 'task',
+          items: convertDataToArray(data),
+          workspaceId: args.workspace_id,
+          filters: pickDefined(args as Record<string, unknown>, ['status', 'owner', 'creator', 'name', 'priority', 'iteration_id', 'created', 'modified']),
+          limit: args.limit,
+          page: args.page,
+        }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_list_tasks', error, workspaceId: args.workspace_id, entityType: 'task' }));
       }
     }
   );
@@ -73,10 +82,11 @@ export function registerTaskTools(server: McpServer, client: TapdApiClient): voi
 
         const data = await client.get<Record<string, unknown>>('/tasks', params);
         const task = data ? Object.values(data)[0] : null;
-        if (!task) return { content: [{ type: 'text', text: `Task ${args.task_id} not found` }], isError: true };
-        return { content: await buildTapdDetailContent(task, getTapdClientAuth(client)) };
+        if (!task) return toMcpError(buildErrorResponse({ tool: 'tapd_get_task', error: new Error(`Task ${args.task_id} not found`), workspaceId: args.workspace_id, entityType: 'task', entityId: args.task_id }));
+        const clientAuth = getTapdClientAuth(client);
+        return { content: await buildTapdDetailContent(task, { ...clientAuth, workspaceId: args.workspace_id }) };
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_get_task', error, workspaceId: args.workspace_id, entityType: 'task', entityId: args.task_id }));
       }
     }
   );
@@ -109,9 +119,9 @@ export function registerTaskTools(server: McpServer, client: TapdApiClient): voi
 
         const data = await client.post<Record<string, unknown>>('/tasks', body);
         const task = data ? Object.values(data)[0] : null;
-        return { content: [{ type: 'text', text: JSON.stringify(task, null, 2) }] };
+        return toMcpText(buildOperationResponse({ tool: 'tapd_create_task', action: 'created', entityType: 'task', item: task, workspaceId: args.workspace_id }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_create_task', error, workspaceId: args.workspace_id, entityType: 'task' }));
       }
     }
   );
@@ -145,9 +155,9 @@ export function registerTaskTools(server: McpServer, client: TapdApiClient): voi
 
         const data = await client.post<Record<string, unknown>>('/tasks/changes', body);
         const task = data ? Object.values(data)[0] : null;
-        return { content: [{ type: 'text', text: JSON.stringify(task, null, 2) }] };
+        return toMcpText(buildOperationResponse({ tool: 'tapd_update_task', action: 'updated', entityType: 'task', item: task, entityId: args.task_id, workspaceId: args.workspace_id }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_update_task', error, workspaceId: args.workspace_id, entityType: 'task', entityId: args.task_id }));
       }
     }
   );
@@ -181,9 +191,15 @@ export function registerTaskTools(server: McpServer, client: TapdApiClient): voi
           .addTimeRange('modified', args.modified);
 
         const data = await client.get<{ count: number }>('/tasks/count', Object.fromEntries(new URLSearchParams(qb.build())));
-        return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+        return toMcpText(buildCountResponse({
+          tool: 'tapd_count_tasks',
+          entityType: 'task',
+          count: data,
+          workspaceId: args.workspace_id,
+          filters: pickDefined(args as Record<string, unknown>, ['status', 'owner', 'creator', 'priority', 'iteration_id', 'created', 'modified']),
+        }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_count_tasks', error, workspaceId: args.workspace_id, entityType: 'task' }));
       }
     }
   );
@@ -205,9 +221,9 @@ export function registerTaskTools(server: McpServer, client: TapdApiClient): voi
           id: args.task_id,
           status: 'deleted',
         });
-        return { content: [{ type: 'text', text: `Task ${args.task_id} deleted successfully` }] };
+        return toMcpText(buildOperationResponse({ tool: 'tapd_delete_task', action: 'deleted', entityType: 'task', entityId: args.task_id, workspaceId: args.workspace_id }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_delete_task', error, workspaceId: args.workspace_id, entityType: 'task', entityId: args.task_id }));
       }
     }
   );

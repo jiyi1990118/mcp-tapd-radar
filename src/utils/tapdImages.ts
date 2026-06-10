@@ -1,4 +1,5 @@
 import { TapdApiClient } from '../api/TapdApiClient.js';
+import { buildDetailResponse } from './response.js';
 
 const IMAGE_MIME_MAP: Record<string, string> = {
   png: 'image/png',
@@ -24,6 +25,11 @@ export type DownloadImageResult =
   | { ok: false; message: string };
 
 type Fetcher = typeof fetch;
+
+type DownloadOptions = {
+  apiBaseUrl?: string;
+  workspaceId?: string;
+};
 
 export function guessImageMimeType(url: string): string {
   const pathname = new URL(url).pathname.toLowerCase();
@@ -84,15 +90,56 @@ export function extractImageUrlsFromObject(value: unknown, baseUrl: string): str
   return Array.from(new Set(collectTextValues(value).flatMap(text => extractImageUrls(text, baseUrl))));
 }
 
+function getTapdImagePath(imageUrl: string): string | null {
+  try {
+    const url = new URL(imageUrl);
+    if (!url.pathname.replace(/\/+/g, '/').startsWith('/tfl/')) return null;
+    return url.pathname.replace(/\/+/g, '/');
+  } catch {
+    return null;
+  }
+}
+
+async function resolveTapdImageDownloadUrl(
+  imageUrl: string,
+  token: string,
+  fetcher: Fetcher,
+  options: DownloadOptions,
+): Promise<string> {
+  if (!options.apiBaseUrl || !options.workspaceId) return imageUrl;
+
+  const imagePath = getTapdImagePath(imageUrl);
+  if (!imagePath) return imageUrl;
+
+  const url = new URL('/files/get_image', options.apiBaseUrl);
+  url.searchParams.set('workspace_id', options.workspaceId);
+  url.searchParams.set('image_path', imagePath);
+
+  const response = await fetcher(url.toString(), {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) return imageUrl;
+
+  const result = await response.json().catch(() => null) as {
+    status?: number;
+    data?: { Attachment?: { download_url?: string } };
+  } | null;
+
+  return result?.status === 1 && result.data?.Attachment?.download_url
+    ? result.data.Attachment.download_url
+    : imageUrl;
+}
+
 export async function downloadTapdImage(
   imageUrl: string,
   token: string,
   fetcher: Fetcher = fetch,
+  options: DownloadOptions = {},
 ): Promise<DownloadImageResult> {
-  const response = await fetcher(imageUrl, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+  const downloadUrl = await resolveTapdImageDownloadUrl(imageUrl, token, fetcher, options);
+  const response = await fetcher(downloadUrl, {
+    headers: downloadUrl === imageUrl ? { Authorization: `Bearer ${token}` } : {},
     redirect: 'follow',
   });
 
@@ -103,7 +150,8 @@ export async function downloadTapdImage(
     return { ok: false, message: `Failed to download image: HTTP ${response.status} ${response.statusText}.${permissionTip}` };
   }
 
-  const mimeType = response.headers.get('content-type')?.split(';')[0]?.trim() || guessImageMimeType(imageUrl);
+  const contentType = response.headers.get('content-type')?.split(';')[0]?.trim();
+  const mimeType = !contentType || contentType === 'image' ? guessImageMimeType(imageUrl) : contentType;
   if (!mimeType.startsWith('image/')) {
     const text = await response.text().catch(() => '');
     return {
@@ -132,6 +180,7 @@ export async function buildTapdDetailContent(
     getToken: () => Promise<string>;
     fetcher?: Fetcher;
     autoDownloadLimit?: number;
+    workspaceId?: string;
   },
 ): Promise<McpContent[]> {
   const autoDownloadLimit = options.autoDownloadLimit ?? 3;
@@ -143,14 +192,23 @@ export async function buildTapdDetailContent(
   if (downloadTargets.length > 0) {
     const token = await options.getToken();
     for (const imageUrl of downloadTargets) {
-      const result = await downloadTapdImage(imageUrl, token, options.fetcher);
+      const result = await downloadTapdImage(imageUrl, token, options.fetcher, {
+        apiBaseUrl: options.baseUrl,
+        workspaceId: options.workspaceId,
+      });
       if (result.ok) downloadedImages.push(result.content);
       else downloadErrors.push(`${imageUrl}: ${result.message}`);
     }
   }
 
   const summary = {
-    detail,
+    ...buildDetailResponse({
+      tool: 'tapd_get_detail',
+      entityType: inferEntityType(detail),
+      item: unwrapTapdEntity(detail),
+      workspaceId: options.workspaceId,
+      raw: detail,
+    }),
     image_resources: {
       image_urls: imageUrls,
       auto_downloaded: downloadedImages.length,
@@ -163,6 +221,20 @@ export async function buildTapdDetailContent(
   };
 
   return [{ type: 'text', text: JSON.stringify(summary, null, 2) }, ...downloadedImages];
+}
+
+function unwrapTapdEntity(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record);
+  if (keys.length === 1 && record[keys[0]] && typeof record[keys[0]] === 'object') return record[keys[0]];
+  return value;
+}
+
+function inferEntityType(value: unknown): string {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return 'item';
+  const keys = Object.keys(value as Record<string, unknown>);
+  return keys.length === 1 ? keys[0].toLowerCase() : 'item';
 }
 
 export function getTapdClientAuth(client: TapdApiClient): { baseUrl: string; getToken: () => Promise<string> } {

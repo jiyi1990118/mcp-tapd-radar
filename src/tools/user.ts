@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { TapdApiClient } from '../api/TapdApiClient.js';
 import { convertDataToArray } from '../utils/helpers.js';
+import { buildDetailResponse, buildErrorResponse, buildListResponse, toMcpError, toMcpText } from '../utils/response.js';
 
 export function registerUserTools(server: McpServer, client: TapdApiClient): void {
   server.registerTool(
@@ -26,9 +27,17 @@ export function registerUserTools(server: McpServer, client: TapdApiClient): voi
         if (args.page) params.page = String(args.page);
 
         const data = await client.get<Record<string, unknown>>('/workspaces/users', params);
-        return { content: [{ type: 'text', text: JSON.stringify(convertDataToArray(data), null, 2) }] };
+        return toMcpText(buildListResponse({
+          tool: 'tapd_list_users',
+          entityType: 'user',
+          items: convertDataToArray(data),
+          workspaceId: args.workspace_id,
+          filters: { name: args.name, status: args.status },
+          limit: args.limit,
+          page: args.page,
+        }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_list_users', error, workspaceId: args.workspace_id, entityType: 'user' }));
       }
     }
   );
@@ -50,10 +59,10 @@ export function registerUserTools(server: McpServer, client: TapdApiClient): voi
           id: args.user_id,
         });
         const user = data ? Object.values(data)[0] : null;
-        if (!user) return { content: [{ type: 'text', text: `User ${args.user_id} not found` }], isError: true };
-        return { content: [{ type: 'text', text: JSON.stringify(user, null, 2) }] };
+        if (!user) return toMcpError(buildErrorResponse({ tool: 'tapd_get_user', error: new Error(`User ${args.user_id} not found`), workspaceId: args.workspace_id, entityType: 'user', entityId: args.user_id }));
+        return toMcpText(buildDetailResponse({ tool: 'tapd_get_user', entityType: 'user', item: user, workspaceId: args.workspace_id, entityId: args.user_id }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_get_user', error, workspaceId: args.workspace_id, entityType: 'user', entityId: args.user_id }));
       }
     }
   );

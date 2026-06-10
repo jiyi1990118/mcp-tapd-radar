@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { TapdApiClient } from '../api/TapdApiClient.js';
+import { buildErrorResponse, toMcpError, toMcpText } from '../utils/response.js';
 
 export function registerPingTool(server: McpServer, client: TapdApiClient): void {
   server.registerTool(
@@ -12,20 +13,14 @@ export function registerPingTool(server: McpServer, client: TapdApiClient): void
     async () => {
       try {
         await client.get<Record<string, unknown>>('/workspaces', { limit: '1' });
-        return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify({ status: 'ok', message: 'TAPD API is reachable and authenticated' }, null, 2),
-          }],
-        };
+        return toMcpText({
+          ok: true,
+          tool: 'tapd_ping',
+          summary: 'TAPD API is reachable and authenticated.',
+          data: { status: 'ok' },
+        });
       } catch (error) {
-        return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify({ status: 'error', message: (error as Error).message }, null, 2),
-          }],
-          isError: true,
-        };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_ping', error }));
       }
     }
   );

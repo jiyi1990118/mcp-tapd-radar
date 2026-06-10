@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { TapdApiClient } from '../api/TapdApiClient.js';
 import { QueryBuilder } from '../api/QueryBuilder.js';
 import { convertDataToArray } from '../utils/helpers.js';
+import { buildErrorResponse, buildListResponse, buildOperationResponse, toMcpError, toMcpText } from '../utils/response.js';
 
 export function registerCommentTools(server: McpServer, client: TapdApiClient): void {
   server.registerTool(
@@ -28,9 +29,17 @@ export function registerCommentTools(server: McpServer, client: TapdApiClient): 
 
         const endpoint = args.entry_type === 'story' ? '/comments' : `/${args.entry_type}s/comments`;
         const data = await client.get<Record<string, unknown>>(endpoint, Object.fromEntries(new URLSearchParams(qb.build())));
-        return { content: [{ type: 'text', text: JSON.stringify(convertDataToArray(data), null, 2) }] };
+        return toMcpText(buildListResponse({
+          tool: 'tapd_list_comments',
+          entityType: 'comment',
+          items: convertDataToArray(data),
+          workspaceId: args.workspace_id,
+          filters: { entry_type: args.entry_type, entry_id: args.entry_id },
+          limit: args.limit,
+          page: args.page,
+        }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_list_comments', error, workspaceId: args.workspace_id, entityType: 'comment', entityId: args.entry_id }));
       }
     }
   );
@@ -61,9 +70,9 @@ export function registerCommentTools(server: McpServer, client: TapdApiClient): 
         const endpoint = args.entry_type === 'story' ? '/comments' : `/${args.entry_type}s/comments`;
         const data = await client.post<Record<string, unknown>>(endpoint, body);
         const comment = data ? Object.values(data)[0] : null;
-        return { content: [{ type: 'text', text: JSON.stringify(comment, null, 2) }] };
+        return toMcpText(buildOperationResponse({ tool: 'tapd_create_comment', action: 'created', entityType: 'comment', item: comment, entityId: args.entry_id, workspaceId: args.workspace_id }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_create_comment', error, workspaceId: args.workspace_id, entityType: 'comment', entityId: args.entry_id }));
       }
     }
   );

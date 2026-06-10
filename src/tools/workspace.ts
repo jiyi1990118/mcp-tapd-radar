@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { TapdApiClient } from '../api/TapdApiClient.js';
 import { QueryBuilder } from '../api/QueryBuilder.js';
 import { convertDataToArray } from '../utils/helpers.js';
+import { buildDetailResponse, buildErrorResponse, buildListResponse, toMcpError, toMcpText } from '../utils/response.js';
 
 export function registerWorkspaceTools(server: McpServer, client: TapdApiClient): void {
   server.registerTool(
@@ -25,9 +26,16 @@ export function registerWorkspaceTools(server: McpServer, client: TapdApiClient)
           .addPagination(args.limit, args.page);
 
         const data = await client.get<Record<string, unknown>>('/workspaces', Object.fromEntries(new URLSearchParams(qb.build())));
-        return { content: [{ type: 'text', text: JSON.stringify(convertDataToArray(data), null, 2) }] };
+        return toMcpText(buildListResponse({
+          tool: 'tapd_list_workspaces',
+          entityType: 'workspace',
+          items: convertDataToArray(data),
+          filters: { name: args.name, status: args.status },
+          limit: args.limit,
+          page: args.page,
+        }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_list_workspaces', error, entityType: 'workspace' }));
       }
     }
   );
@@ -45,10 +53,10 @@ export function registerWorkspaceTools(server: McpServer, client: TapdApiClient)
       try {
         const data = await client.get<Record<string, unknown>>('/workspaces', { workspace_id: args.workspace_id });
         const workspace = data ? Object.values(data)[0] : null;
-        if (!workspace) return { content: [{ type: 'text', text: `Workspace ${args.workspace_id} not found` }], isError: true };
-        return { content: [{ type: 'text', text: JSON.stringify(workspace, null, 2) }] };
+        if (!workspace) return toMcpError(buildErrorResponse({ tool: 'tapd_get_workspace', error: new Error(`Workspace ${args.workspace_id} not found`), workspaceId: args.workspace_id, entityType: 'workspace', entityId: args.workspace_id }));
+        return toMcpText(buildDetailResponse({ tool: 'tapd_get_workspace', entityType: 'workspace', item: workspace, workspaceId: args.workspace_id, entityId: args.workspace_id }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_get_workspace', error, workspaceId: args.workspace_id, entityType: 'workspace', entityId: args.workspace_id }));
       }
     }
   );

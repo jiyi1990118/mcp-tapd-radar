@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { TapdApiClient } from '../api/TapdApiClient.js';
 import { QueryBuilder } from '../api/QueryBuilder.js';
 import { convertDataToArray } from '../utils/helpers.js';
+import { buildDetailResponse, buildErrorResponse, buildListResponse, toMcpError, toMcpText } from '../utils/response.js';
 
 export function registerIterationTools(server: McpServer, client: TapdApiClient): void {
   server.registerTool(
@@ -31,9 +32,17 @@ export function registerIterationTools(server: McpServer, client: TapdApiClient)
           .addPagination(args.limit, args.page);
 
         const data = await client.get<Record<string, unknown>>('/iterations', Object.fromEntries(new URLSearchParams(qb.build())));
-        return { content: [{ type: 'text', text: JSON.stringify(convertDataToArray(data), null, 2) }] };
+        return toMcpText(buildListResponse({
+          tool: 'tapd_list_iterations',
+          entityType: 'iteration',
+          items: convertDataToArray(data),
+          workspaceId: args.workspace_id,
+          filters: { status: args.status, name: args.name, created: args.created, modified: args.modified },
+          limit: args.limit,
+          page: args.page,
+        }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_list_iterations', error, workspaceId: args.workspace_id, entityType: 'iteration' }));
       }
     }
   );
@@ -53,10 +62,10 @@ export function registerIterationTools(server: McpServer, client: TapdApiClient)
         const params: Record<string, string> = { workspace_id: args.workspace_id, id: args.iteration_id };
         const data = await client.get<Record<string, unknown>>('/iterations', params);
         const iteration = data ? Object.values(data)[0] : null;
-        if (!iteration) return { content: [{ type: 'text', text: `Iteration ${args.iteration_id} not found` }], isError: true };
-        return { content: [{ type: 'text', text: JSON.stringify(iteration, null, 2) }] };
+        if (!iteration) return toMcpError(buildErrorResponse({ tool: 'tapd_get_iteration', error: new Error(`Iteration ${args.iteration_id} not found`), workspaceId: args.workspace_id, entityType: 'iteration', entityId: args.iteration_id }));
+        return toMcpText(buildDetailResponse({ tool: 'tapd_get_iteration', entityType: 'iteration', item: iteration, workspaceId: args.workspace_id, entityId: args.iteration_id }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_get_iteration', error, workspaceId: args.workspace_id, entityType: 'iteration', entityId: args.iteration_id }));
       }
     }
   );

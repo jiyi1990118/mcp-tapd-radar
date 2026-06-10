@@ -4,6 +4,7 @@ import { TapdApiClient } from '../api/TapdApiClient.js';
 import { QueryBuilder } from '../api/QueryBuilder.js';
 import { convertDataToArray, pickDefined } from '../utils/helpers.js';
 import { buildTapdDetailContent, getTapdClientAuth } from '../utils/tapdImages.js';
+import { buildCountResponse, buildErrorResponse, buildListResponse, buildOperationResponse, toMcpError, toMcpText } from '../utils/response.js';
 
 const STORY_FIELDS = [
   'name', 'description', 'status', 'owner', 'priority', 'iteration_id',
@@ -50,9 +51,17 @@ export function registerStoryTools(server: McpServer, client: TapdApiClient): vo
         if (args.fields) qb.add('fields', args.fields);
 
         const data = await client.get<Record<string, unknown>>('/stories', Object.fromEntries(new URLSearchParams(qb.build())));
-        return { content: [{ type: 'text', text: JSON.stringify(convertDataToArray(data), null, 2) }] };
+        return toMcpText(buildListResponse({
+          tool: 'tapd_list_stories',
+          entityType: 'story',
+          items: convertDataToArray(data),
+          workspaceId: args.workspace_id,
+          filters: pickDefined(args as Record<string, unknown>, ['status', 'owner', 'creator', 'priority', 'iteration_id', 'created', 'modified', 'name']),
+          limit: args.limit,
+          page: args.page,
+        }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_list_stories', error, workspaceId: args.workspace_id, entityType: 'story' }));
       }
     }
   );
@@ -75,10 +84,11 @@ export function registerStoryTools(server: McpServer, client: TapdApiClient): vo
 
         const data = await client.get<Record<string, unknown>>('/stories', params);
         const story = data ? Object.values(data)[0] : null;
-        if (!story) return { content: [{ type: 'text', text: `Story ${args.story_id} not found` }], isError: true };
-        return { content: await buildTapdDetailContent(story, getTapdClientAuth(client)) };
+        if (!story) return toMcpError(buildErrorResponse({ tool: 'tapd_get_story', error: new Error(`Story ${args.story_id} not found`), workspaceId: args.workspace_id, entityType: 'story', entityId: args.story_id }));
+        const clientAuth = getTapdClientAuth(client);
+        return { content: await buildTapdDetailContent(story, { ...clientAuth, workspaceId: args.workspace_id }) };
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_get_story', error, workspaceId: args.workspace_id, entityType: 'story', entityId: args.story_id }));
       }
     }
   );
@@ -119,9 +129,9 @@ export function registerStoryTools(server: McpServer, client: TapdApiClient): vo
 
         const data = await client.post<Record<string, unknown>>('/stories', body);
         const story = data ? Object.values(data)[0] : null;
-        return { content: [{ type: 'text', text: JSON.stringify(story, null, 2) }] };
+        return toMcpText(buildOperationResponse({ tool: 'tapd_create_story', action: 'created', entityType: 'story', item: story, workspaceId: args.workspace_id }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_create_story', error, workspaceId: args.workspace_id, entityType: 'story' }));
       }
     }
   );
@@ -163,9 +173,9 @@ export function registerStoryTools(server: McpServer, client: TapdApiClient): vo
 
         const data = await client.post<Record<string, unknown>>('/stories/changes', body);
         const story = data ? Object.values(data)[0] : null;
-        return { content: [{ type: 'text', text: JSON.stringify(story, null, 2) }] };
+        return toMcpText(buildOperationResponse({ tool: 'tapd_update_story', action: 'updated', entityType: 'story', item: story, entityId: args.story_id, workspaceId: args.workspace_id }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_update_story', error, workspaceId: args.workspace_id, entityType: 'story', entityId: args.story_id }));
       }
     }
   );
@@ -199,9 +209,15 @@ export function registerStoryTools(server: McpServer, client: TapdApiClient): vo
           .addTimeRange('modified', args.modified);
 
         const data = await client.get<{ count: number }>('/stories/count', Object.fromEntries(new URLSearchParams(qb.build())));
-        return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+        return toMcpText(buildCountResponse({
+          tool: 'tapd_count_stories',
+          entityType: 'story',
+          count: data,
+          workspaceId: args.workspace_id,
+          filters: pickDefined(args as Record<string, unknown>, ['status', 'owner', 'creator', 'priority', 'iteration_id', 'created', 'modified']),
+        }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_count_stories', error, workspaceId: args.workspace_id, entityType: 'story' }));
       }
     }
   );
@@ -223,9 +239,9 @@ export function registerStoryTools(server: McpServer, client: TapdApiClient): vo
           id: args.story_id,
           status: 'deleted',
         });
-        return { content: [{ type: 'text', text: `Story ${args.story_id} deleted successfully` }] };
+        return toMcpText(buildOperationResponse({ tool: 'tapd_delete_story', action: 'deleted', entityType: 'story', entityId: args.story_id, workspaceId: args.workspace_id }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_delete_story', error, workspaceId: args.workspace_id, entityType: 'story', entityId: args.story_id }));
       }
     }
   );

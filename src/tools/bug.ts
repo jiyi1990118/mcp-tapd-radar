@@ -4,6 +4,7 @@ import { TapdApiClient } from '../api/TapdApiClient.js';
 import { QueryBuilder } from '../api/QueryBuilder.js';
 import { convertDataToArray, pickDefined } from '../utils/helpers.js';
 import { buildTapdDetailContent, getTapdClientAuth } from '../utils/tapdImages.js';
+import { buildCountResponse, buildErrorResponse, buildListResponse, buildOperationResponse, toMcpError, toMcpText } from '../utils/response.js';
 
 const BUG_FIELDS = [
   'title', 'description', 'severity', 'priority', 'current_owner', 'status',
@@ -48,9 +49,17 @@ export function registerBugTools(server: McpServer, client: TapdApiClient): void
         if (args.fields) qb.add('fields', args.fields);
 
         const data = await client.get<Record<string, unknown>>('/bugs', Object.fromEntries(new URLSearchParams(qb.build())));
-        return { content: [{ type: 'text', text: JSON.stringify(convertDataToArray(data), null, 2) }] };
+        return toMcpText(buildListResponse({
+          tool: 'tapd_list_bugs',
+          entityType: 'bug',
+          items: convertDataToArray(data),
+          workspaceId: args.workspace_id,
+          filters: pickDefined(args as Record<string, unknown>, ['status', 'severity', 'priority', 'current_owner', 'reporter', 'title', 'created', 'modified']),
+          limit: args.limit,
+          page: args.page,
+        }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_list_bugs', error, workspaceId: args.workspace_id, entityType: 'bug' }));
       }
     }
   );
@@ -73,10 +82,11 @@ export function registerBugTools(server: McpServer, client: TapdApiClient): void
 
         const data = await client.get<Record<string, unknown>>('/bugs', params);
         const bug = data ? Object.values(data)[0] : null;
-        if (!bug) return { content: [{ type: 'text', text: `Bug ${args.bug_id} not found` }], isError: true };
-        return { content: await buildTapdDetailContent(bug, getTapdClientAuth(client)) };
+        if (!bug) return toMcpError(buildErrorResponse({ tool: 'tapd_get_bug', error: new Error(`Bug ${args.bug_id} not found`), workspaceId: args.workspace_id, entityType: 'bug', entityId: args.bug_id }));
+        const clientAuth = getTapdClientAuth(client);
+        return { content: await buildTapdDetailContent(bug, { ...clientAuth, workspaceId: args.workspace_id }) };
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_get_bug', error, workspaceId: args.workspace_id, entityType: 'bug', entityId: args.bug_id }));
       }
     }
   );
@@ -112,9 +122,9 @@ export function registerBugTools(server: McpServer, client: TapdApiClient): void
 
         const data = await client.post<Record<string, unknown>>('/bugs', body);
         const bug = data ? Object.values(data)[0] : null;
-        return { content: [{ type: 'text', text: JSON.stringify(bug, null, 2) }] };
+        return toMcpText(buildOperationResponse({ tool: 'tapd_create_bug', action: 'created', entityType: 'bug', item: bug, workspaceId: args.workspace_id }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_create_bug', error, workspaceId: args.workspace_id, entityType: 'bug' }));
       }
     }
   );
@@ -152,9 +162,9 @@ export function registerBugTools(server: McpServer, client: TapdApiClient): void
 
         const data = await client.post<Record<string, unknown>>('/bugs/changes', body);
         const bug = data ? Object.values(data)[0] : null;
-        return { content: [{ type: 'text', text: JSON.stringify(bug, null, 2) }] };
+        return toMcpText(buildOperationResponse({ tool: 'tapd_update_bug', action: 'updated', entityType: 'bug', item: bug, entityId: args.bug_id, workspaceId: args.workspace_id }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_update_bug', error, workspaceId: args.workspace_id, entityType: 'bug', entityId: args.bug_id }));
       }
     }
   );
@@ -186,9 +196,15 @@ export function registerBugTools(server: McpServer, client: TapdApiClient): void
           .addTimeRange('modified', args.modified);
 
         const data = await client.get<{ count: number }>('/bugs/count', Object.fromEntries(new URLSearchParams(qb.build())));
-        return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+        return toMcpText(buildCountResponse({
+          tool: 'tapd_count_bugs',
+          entityType: 'bug',
+          count: data,
+          workspaceId: args.workspace_id,
+          filters: pickDefined(args as Record<string, unknown>, ['status', 'severity', 'priority', 'current_owner', 'created', 'modified']),
+        }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_count_bugs', error, workspaceId: args.workspace_id, entityType: 'bug' }));
       }
     }
   );
@@ -210,9 +226,9 @@ export function registerBugTools(server: McpServer, client: TapdApiClient): void
           id: args.bug_id,
           status: 'deleted',
         });
-        return { content: [{ type: 'text', text: `Bug ${args.bug_id} deleted successfully` }] };
+        return toMcpText(buildOperationResponse({ tool: 'tapd_delete_bug', action: 'deleted', entityType: 'bug', entityId: args.bug_id, workspaceId: args.workspace_id }));
       } catch (error) {
-        return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
+        return toMcpError(buildErrorResponse({ tool: 'tapd_delete_bug', error, workspaceId: args.workspace_id, entityType: 'bug', entityId: args.bug_id }));
       }
     }
   );
