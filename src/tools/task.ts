@@ -153,7 +153,7 @@ export function registerTaskTools(server: McpServer, client: TapdApiClient): voi
           ...pickDefined(args as Record<string, unknown>, TASK_FIELDS),
         };
 
-        const data = await client.post<Record<string, unknown>>('/tasks/changes', body);
+        const data = await client.post<Record<string, unknown>>('/tasks', body);
         const task = data ? Object.values(data)[0] : null;
         return toMcpText(buildOperationResponse({ tool: 'tapd_update_task', action: 'updated', entityType: 'task', item: task, entityId: args.task_id, workspaceId: args.workspace_id }));
       } catch (error) {
@@ -216,7 +216,7 @@ export function registerTaskTools(server: McpServer, client: TapdApiClient): voi
     },
     async (args) => {
       try {
-        await client.post('/tasks/changes', {
+        await client.post('/tasks', {
           workspace_id: args.workspace_id,
           id: args.task_id,
           status: 'deleted',
@@ -224,6 +224,38 @@ export function registerTaskTools(server: McpServer, client: TapdApiClient): voi
         return toMcpText(buildOperationResponse({ tool: 'tapd_delete_task', action: 'deleted', entityType: 'task', entityId: args.task_id, workspaceId: args.workspace_id }));
       } catch (error) {
         return toMcpError(buildErrorResponse({ tool: 'tapd_delete_task', error, workspaceId: args.workspace_id, entityType: 'task', entityId: args.task_id }));
+      }
+    }
+  );
+
+  server.registerTool(
+    'tapd_batch_update_tasks',
+    {
+      title: 'Batch Update TAPD Tasks',
+      description: 'Update multiple tasks at once with the same field values.',
+      inputSchema: {
+        workspace_id: z.string().describe('TAPD workspace/project ID'),
+        task_ids: z.string().describe('Comma-separated task IDs'),
+        status: z.string().optional().describe('New status'),
+        owner: z.string().optional().describe('New owner'),
+        priority: z.string().optional().describe('New priority'),
+      },
+    },
+    async (args) => {
+      try {
+        const ids = args.task_ids.split(',').map(id => id.trim());
+        const fields = pickDefined(args as Record<string, unknown>, ['status', 'owner', 'priority']);
+
+        const workitems = ids.map(id => ({ id, ...fields }));
+
+        const body = {
+          workspace_id: args.workspace_id,
+          workitems,
+        };
+        await client.post('/tasks/batch_update_task', body);
+        return toMcpText(buildOperationResponse({ tool: 'tapd_batch_update_tasks', action: 'updated', entityType: 'task', workspaceId: args.workspace_id }));
+      } catch (error) {
+        return toMcpError(buildErrorResponse({ tool: 'tapd_batch_update_tasks', error, workspaceId: args.workspace_id, entityType: 'task' }));
       }
     }
   );

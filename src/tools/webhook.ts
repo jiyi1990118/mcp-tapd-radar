@@ -2,6 +2,13 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { TapdApiClient } from '../api/TapdApiClient.js';
 
+/**
+ * ⚠️ IMPORTANT: TAPD Open Platform does NOT expose a /webhooks API endpoint.
+ * All webhook operations are local-only (in-memory store).
+ * Real webhook configuration must be done via TAPD web UI:
+ * https://www.tapd.cn/help/view#1120003271001002318
+ */
+
 interface WebhookConfig {
   id: string;
   workspace_id: string;
@@ -15,12 +22,12 @@ interface WebhookConfig {
 const webhookStore = new Map<string, WebhookConfig>();
 let webhookCounter = 0;
 
-export function registerWebhookTools(server: McpServer, client: TapdApiClient): void {
+export function registerWebhookTools(server: McpServer, _client: TapdApiClient): void {
   server.registerTool(
     'tapd_list_webhooks',
     {
       title: 'List TAPD Webhook Subscriptions',
-      description: 'List all configured webhook subscriptions for a TAPD workspace. Syncs with TAPD API to show server-side webhooks.',
+      description: 'List locally configured webhook subscriptions. Note: TAPD API does not expose webhook management endpoints; real webhooks must be configured via TAPD web UI.',
       inputSchema: {
         workspace_id: z.string().describe('TAPD workspace/project ID'),
       },
@@ -29,14 +36,7 @@ export function registerWebhookTools(server: McpServer, client: TapdApiClient): 
       try {
         const localWebhooks = Array.from(webhookStore.values())
           .filter(w => w.workspace_id === args.workspace_id);
-
-        try {
-          const remoteData = await client.get<Record<string, unknown>>('/webhooks', { workspace_id: args.workspace_id });
-          const remoteWebhooks = remoteData ? Object.values(remoteData) : [];
-          return { content: [{ type: 'text', text: JSON.stringify({ local: localWebhooks, remote: remoteWebhooks }, null, 2) }] };
-        } catch {
-          return { content: [{ type: 'text', text: JSON.stringify(localWebhooks, null, 2) }] };
-        }
+        return { content: [{ type: 'text', text: JSON.stringify(localWebhooks, null, 2) }] };
       } catch (error) {
         return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
       }
@@ -47,7 +47,7 @@ export function registerWebhookTools(server: McpServer, client: TapdApiClient): 
     'tapd_create_webhook',
     {
       title: 'Create TAPD Webhook Subscription',
-      description: 'Register a new webhook subscription for TAPD events. Creates both a local config and calls the TAPD webhook API.',
+      description: 'Register a webhook subscription locally. Note: This only creates a local config. Real webhook must be configured via TAPD web UI at https://www.tapd.cn/help/view#1120003271001002318',
       inputSchema: {
         workspace_id: z.string().describe('TAPD workspace/project ID'),
         url: z.string().describe('Webhook callback URL to receive event notifications'),
@@ -70,16 +70,6 @@ export function registerWebhookTools(server: McpServer, client: TapdApiClient): 
         };
         webhookStore.set(id, webhook);
 
-        try {
-          const body: Record<string, unknown> = {
-            workspace_id: args.workspace_id,
-            url: args.url,
-            event: args.events,
-          };
-          if (args.secret) body.secret = args.secret;
-          await client.post('/webhooks', body);
-        } catch { /* remote webhook creation failed, local config still saved */ }
-
         return { content: [{ type: 'text', text: JSON.stringify(webhook, null, 2) }] };
       } catch (error) {
         return { content: [{ type: 'text', text: `Error: ${(error as Error).message}` }], isError: true };
@@ -91,10 +81,9 @@ export function registerWebhookTools(server: McpServer, client: TapdApiClient): 
     'tapd_delete_webhook',
     {
       title: 'Delete TAPD Webhook Subscription',
-      description: 'Remove a configured webhook subscription. Deletes from both local store and TAPD API.',
+      description: 'Remove a locally configured webhook subscription. Note: TAPD API does not expose webhook deletion endpoint.',
       inputSchema: {
         webhook_id: z.string().describe('The webhook ID to delete'),
-        workspace_id: z.string().optional().describe('TAPD workspace/project ID (required for API deletion)'),
       },
     },
     async (args) => {
@@ -103,12 +92,6 @@ export function registerWebhookTools(server: McpServer, client: TapdApiClient): 
           return { content: [{ type: 'text', text: `Webhook ${args.webhook_id} not found` }], isError: true };
         }
         webhookStore.delete(args.webhook_id);
-
-        if (args.workspace_id) {
-          try {
-            await client.delete('/webhooks', { workspace_id: args.workspace_id, id: args.webhook_id });
-          } catch { /* remote deletion failed, local config already removed */ }
-        }
 
         return { content: [{ type: 'text', text: `Webhook ${args.webhook_id} deleted successfully` }] };
       } catch (error) {

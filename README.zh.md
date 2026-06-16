@@ -114,6 +114,7 @@ npm run build
 | `tapd_get_story` | 获取单个需求的详细信息 | `workspace_id`, `story_id` |
 | `tapd_create_story` | 创建新需求 | `workspace_id`, `name` |
 | `tapd_update_story` | 更新需求字段（状态、处理人、优先级等） | `workspace_id`, `story_id` |
+| `tapd_batch_update_stories` | **批量更新多个需求** | `workspace_id`, `story_ids` |
 | `tapd_count_stories` | 统计符合条件的需求数量 | `workspace_id` |
 | `tapd_delete_story` | 删除需求 | `workspace_id`, `story_id` |
 
@@ -133,6 +134,7 @@ npm run build
 | `tapd_get_bug` | 获取单个缺陷的详细信息 | `workspace_id`, `bug_id` |
 | `tapd_create_bug` | 创建新缺陷 | `workspace_id`, `title` |
 | `tapd_update_bug` | 更新缺陷字段（状态、严重程度、处理人等） | `workspace_id`, `bug_id` |
+| `tapd_batch_update_bugs` | **批量更新多个缺陷** | `workspace_id`, `bug_ids` |
 | `tapd_count_bugs` | 统计符合条件的缺陷数量 | `workspace_id` |
 | `tapd_delete_bug` | 删除缺陷 | `workspace_id`, `bug_id` |
 
@@ -152,6 +154,7 @@ npm run build
 | `tapd_get_task` | 获取单个任务的详细信息 | `workspace_id`, `task_id` |
 | `tapd_create_task` | 创建新任务 | `workspace_id`, `name` |
 | `tapd_update_task` | 更新任务字段（状态、处理人、截止日期等） | `workspace_id`, `task_id` |
+| `tapd_batch_update_tasks` | **批量更新多个任务** | `workspace_id`, `task_ids` |
 | `tapd_count_tasks` | 统计符合条件的任务数量 | `workspace_id` |
 | `tapd_delete_task` | 删除任务 | `workspace_id`, `task_id` |
 
@@ -169,13 +172,18 @@ npm run build
 |---|---|---|
 | `tapd_list_iterations` | 查询迭代列表，支持按状态、名称搜索、时间范围过滤 | `workspace_id` |
 | `tapd_get_iteration` | 获取单个迭代的详细信息 | `workspace_id`, `iteration_id` |
+| `tapd_lock_iteration` | **锁定迭代，防止修改** | `workspace_id`, `iteration_id` |
+| `tapd_unlock_iteration` | **解锁迭代，允许修改** | `workspace_id`, `iteration_id` |
+
+> ⚠️ **权限提示**: 迭代锁定/解锁需要应用具备特殊权限。如果遇到 403 错误，请联系项目管理员在 TAPD 开放平台配置应用权限。
 
 **应用场景示例：**
 
 > 列出当前项目所有进行中的迭代
 > 查看迭代"Sprint 2024-06"的详细信息
+> 锁定迭代"Sprint Q1"防止后续修改
+> 解锁迭代"Sprint Q2"允许更新
 > 列出最近一个月创建的迭代
-> 找出所有已结束的迭代
 
 ### 项目空间 (Workspace)
 
@@ -216,25 +224,29 @@ npm run build
 > 搜索项目中名字包含"张"的成员
 > 查看用户 zhangsan 的详细信息
 
-### Webhook 管理
+### Webhook 管理（仅本地存储）
+
+> ⚠️ **TAPD 开放 API 不提供 Webhook 管理端点。** 以下工具仅操作本地内存存储，用于记录配置信息。实际的 Webhook 配置需通过 TAPD 网页界面完成。
 
 | 工具 | 说明 | 必填参数 |
 |---|---|---|
-| `tapd_list_webhooks` | 列出已配置的 Webhook 订阅（含本地和远程） | `workspace_id` |
-| `tapd_create_webhook` | 注册新的 Webhook 订阅 | `workspace_id`, `url`, `events` |
-| `tapd_delete_webhook` | 删除 Webhook 订阅 | `webhook_id` |
+| `tapd_list_webhooks` | 列出本地记录的 Webhook 配置 | `workspace_id` |
+| `tapd_create_webhook` | 在本地记录 Webhook 配置 | `workspace_id`, `url`, `events` |
+| `tapd_delete_webhook` | 删除本地记录的 Webhook 配置 | `webhook_id` |
 
 **应用场景示例：**
 
-> 查看项目 12345678 配置了哪些 Webhook
-> 创建一个 Webhook：当需求创建或更新时通知 https://my-server.com/hook
-> 删除 Webhook wh_1
+> 查看我本地记录的 Webhook 配置
+> 记录一个 Webhook 配置：当需求创建或更新时通知 https://my-server.com/hook
+> 删除本地 Webhook 记录 wh_1
 
 ### 图片下载 (Image)
 
 | 工具 | 说明 | 必填参数 |
 |---|---|---|
 | `tapd_download_image` | 下载需要认证的 TAPD 图片（如原型图、截图），返回 base64 图片供 AI 分析 | `url` |
+
+> **关于标签**: TAPD 标签通过需求/缺陷/任务的 `label` 字段直接管理，首次使用时会自动创建。
 
 **应用场景示例：**
 

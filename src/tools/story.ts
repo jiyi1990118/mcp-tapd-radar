@@ -8,7 +8,7 @@ import { buildCountResponse, buildErrorResponse, buildListResponse, buildOperati
 
 const STORY_FIELDS = [
   'name', 'description', 'status', 'owner', 'priority', 'iteration_id',
-  'begin', 'due', 'category_id',
+  'begin', 'due', 'size', 'category_id', 'estimate',
   'custom_field_one', 'custom_field_two', 'custom_field_three', 'custom_field_four',
   'custom_field_five', 'custom_field_six', 'custom_field_seven', 'custom_field_eight',
 ];
@@ -109,6 +109,7 @@ export function registerStoryTools(server: McpServer, client: TapdApiClient): vo
         begin: z.string().optional().describe('Start date (YYYY-MM-DD)'),
         due: z.string().optional().describe('Due date (YYYY-MM-DD)'),
         category_id: z.string().optional().describe('Category ID'),
+        estimate: z.number().optional().describe('Story estimate (work hours / person-days)'),
         custom_field_one: z.string().optional().describe('Custom field 1'),
         custom_field_two: z.string().optional().describe('Custom field 2'),
         custom_field_three: z.string().optional().describe('Custom field 3'),
@@ -152,7 +153,9 @@ export function registerStoryTools(server: McpServer, client: TapdApiClient): vo
         iteration_id: z.string().optional().describe('New iteration ID'),
         begin: z.string().optional().describe('New start date'),
         due: z.string().optional().describe('New due date'),
+        size: z.string().optional().describe('Story size/scale'),
         category_id: z.string().optional().describe('New category ID'),
+        estimate: z.number().optional().describe('New estimate (work hours / person-days)'),
         custom_field_one: z.string().optional().describe('Custom field 1'),
         custom_field_two: z.string().optional().describe('Custom field 2'),
         custom_field_three: z.string().optional().describe('Custom field 3'),
@@ -171,7 +174,7 @@ export function registerStoryTools(server: McpServer, client: TapdApiClient): vo
           ...pickDefined(args as Record<string, unknown>, STORY_FIELDS),
         };
 
-        const data = await client.post<Record<string, unknown>>('/stories/changes', body);
+        const data = await client.post<Record<string, unknown>>('/stories', body);
         const story = data ? Object.values(data)[0] : null;
         return toMcpText(buildOperationResponse({ tool: 'tapd_update_story', action: 'updated', entityType: 'story', item: story, entityId: args.story_id, workspaceId: args.workspace_id }));
       } catch (error) {
@@ -234,7 +237,7 @@ export function registerStoryTools(server: McpServer, client: TapdApiClient): vo
     },
     async (args) => {
       try {
-        await client.post('/stories/changes', {
+        await client.post('/stories', {
           workspace_id: args.workspace_id,
           id: args.story_id,
           status: 'deleted',
@@ -242,6 +245,39 @@ export function registerStoryTools(server: McpServer, client: TapdApiClient): vo
         return toMcpText(buildOperationResponse({ tool: 'tapd_delete_story', action: 'deleted', entityType: 'story', entityId: args.story_id, workspaceId: args.workspace_id }));
       } catch (error) {
         return toMcpError(buildErrorResponse({ tool: 'tapd_delete_story', error, workspaceId: args.workspace_id, entityType: 'story', entityId: args.story_id }));
+      }
+    }
+  );
+
+  server.registerTool(
+    'tapd_batch_update_stories',
+    {
+      title: 'Batch Update TAPD Stories',
+      description: 'Update multiple stories at once with the same field values. More efficient than updating one by one.',
+      inputSchema: {
+        workspace_id: z.string().describe('TAPD workspace/project ID'),
+        story_ids: z.string().describe('Comma-separated story IDs, e.g. "123,456,789"'),
+        status: z.string().optional().describe('New status for all stories'),
+        owner: z.string().optional().describe('New owner/handler'),
+        priority: z.string().optional().describe('New priority'),
+        iteration_id: z.string().optional().describe('New iteration ID'),
+      },
+    },
+    async (args) => {
+      try {
+        const ids = args.story_ids.split(',').map(id => id.trim());
+        const fields = pickDefined(args as Record<string, unknown>, ['status', 'owner', 'priority', 'iteration_id']);
+
+        const workitems = ids.map(id => ({ id, ...fields }));
+
+        const body = {
+          workspace_id: args.workspace_id,
+          workitems,
+        };
+        await client.post('/stories/batch_update_story', body);
+        return toMcpText(buildOperationResponse({ tool: 'tapd_batch_update_stories', action: 'updated', entityType: 'story', workspaceId: args.workspace_id }));
+      } catch (error) {
+        return toMcpError(buildErrorResponse({ tool: 'tapd_batch_update_stories', error, workspaceId: args.workspace_id, entityType: 'story' }));
       }
     }
   );

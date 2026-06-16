@@ -160,7 +160,7 @@ export function registerBugTools(server: McpServer, client: TapdApiClient): void
           ...pickDefined(args as Record<string, unknown>, BUG_FIELDS),
         };
 
-        const data = await client.post<Record<string, unknown>>('/bugs/changes', body);
+        const data = await client.post<Record<string, unknown>>('/bugs', body);
         const bug = data ? Object.values(data)[0] : null;
         return toMcpText(buildOperationResponse({ tool: 'tapd_update_bug', action: 'updated', entityType: 'bug', item: bug, entityId: args.bug_id, workspaceId: args.workspace_id }));
       } catch (error) {
@@ -221,7 +221,7 @@ export function registerBugTools(server: McpServer, client: TapdApiClient): void
     },
     async (args) => {
       try {
-        await client.post('/bugs/changes', {
+        await client.post('/bugs', {
           workspace_id: args.workspace_id,
           id: args.bug_id,
           status: 'deleted',
@@ -229,6 +229,40 @@ export function registerBugTools(server: McpServer, client: TapdApiClient): void
         return toMcpText(buildOperationResponse({ tool: 'tapd_delete_bug', action: 'deleted', entityType: 'bug', entityId: args.bug_id, workspaceId: args.workspace_id }));
       } catch (error) {
         return toMcpError(buildErrorResponse({ tool: 'tapd_delete_bug', error, workspaceId: args.workspace_id, entityType: 'bug', entityId: args.bug_id }));
+      }
+    }
+  );
+
+  server.registerTool(
+    'tapd_batch_update_bugs',
+    {
+      title: 'Batch Update TAPD Bugs',
+      description: 'Update multiple bugs at once with the same field values.',
+      inputSchema: {
+        workspace_id: z.string().describe('TAPD workspace/project ID'),
+        bug_ids: z.string().describe('Comma-separated bug IDs'),
+        status: z.string().optional().describe('New status'),
+        current_owner: z.string().optional().describe('New owner'),
+        severity: z.string().optional().describe('New severity'),
+        priority: z.string().optional().describe('New priority'),
+      },
+    },
+    async (args) => {
+      try {
+        const ids = args.bug_ids.split(',').map(id => id.trim());
+        const fields = pickDefined(args as Record<string, unknown>, ['status', 'current_owner', 'severity', 'priority']);
+
+        const workitems = ids.map(id => ({ id, ...fields }));
+
+        const body = {
+          workspace_id: args.workspace_id,
+          project_id: args.workspace_id,
+          workitems,
+        };
+        await client.post('/bugs/batch_update_bug', body);
+        return toMcpText(buildOperationResponse({ tool: 'tapd_batch_update_bugs', action: 'updated', entityType: 'bug', workspaceId: args.workspace_id }));
+      } catch (error) {
+        return toMcpError(buildErrorResponse({ tool: 'tapd_batch_update_bugs', error, workspaceId: args.workspace_id, entityType: 'bug' }));
       }
     }
   );

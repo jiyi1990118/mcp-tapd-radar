@@ -39,6 +39,25 @@
 - [11-核心概念概览.md](./11-核心概念概览.md) - TAPD核心概念总览
 - [12-业务对象.md](./12-业务对象.md) - TAPD业务对象说明（需求、缺陷、任务）
 
+## API参考文档
+
+完整的API接口文档已补充，详见：
+- **[API参考索引](./API参考/README.md)** - 100+ API接口完整文档
+
+### 核心业务对象 API
+- [需求 (Story) API](./API参考/14-需求API.md) - 40+ 接口
+- [缺陷 (Bug) API](./API参考/15-缺陷API.md) - 20+ 接口
+- [任务 (Task) API](./API参考/16-任务API.md) - 11 接口
+- [迭代 (Iteration) API](./API参考/17-迭代API.md) - 14 接口
+
+### 辅助功能 API
+- [评论 (Comment) API](./API参考/18-评论API.md)
+- [用户 (User) API](./API参考/19-用户API.md)
+- [工作空间 (Workspace) API](./API参考/20-工作空间API.md)
+- [Webhook API](./API参考/21-Webhook%20API.md)
+- [附件 (Attachment) API](./API参考/22-附件API.md)
+- [标签 (Label) API](./API参考/23-标签API.md)
+
 ## 关键信息摘要
 
 ### API基础信息
@@ -51,10 +70,10 @@
 ### 核心业务对象
 
 TAPD支持以下核心业务对象：
-- 需求 (Story)
-- 缺陷 (Bug)  
-- 任务 (Task)
-- 迭代 (Iteration)
+- 需求 (Story) - [API文档](./API参考/14-需求API.md)
+- 缺陷 (Bug) - [API文档](./API参考/15-缺陷API.md)
+- 任务 (Task) - [API文档](./API参考/16-任务API.md)
+- 迭代 (Iteration) - [API文档](./API参考/17-迭代API.md)
 
 ### 扩展模块类型
 
@@ -69,8 +88,33 @@ TAPD支持以下核心业务对象：
 - `bug::create` / `bug::update` / `bug::status_change`
 - `task::create` / `task::update` / `task::status_change`
 
+## 开发规范
+
+**开发MCP工具时，必须以此处API文档为优先参考。**
+
+### API文档优先原则
+
+1. **实现前查阅**: 新增或修改MCP工具前，先查阅对应API文档
+2. **参数对齐**: 确保MCP工具参数与API文档一致
+3. **端点验证**: 实现后用curl测试API端点，确认实际行为
+4. **文档同步**: 工具变更后同步更新所有文档
+
+### 已验证的特殊情况
+
+| 情况 | 说明 | 处理方式 |
+|------|------|----------|
+| 批量更新 | 需JSON Body格式，`workitems: [{id, ...}]` | 参考[14-需求API.md#批量更新需求](./API参考/14-需求API.md#批量更新需求) |
+| 标签管理 | `/labels`端点不存在 | 通过`label`字段在业务对象上管理 |
+| 迭代锁定 | 需要特殊应用权限 | 403错误表示权限不足 |
+
+### 实现流程
+
+```
+1. 查阅API文档 → 2. 用curl测试端点 → 3. 实现MCP工具 → 4. 测试验证 → 5. 更新文档
+```
+
 ## 文档来源
 
 所有文档均来自TAPD开放平台官方文档: https://open.tapd.cn/document/api-doc/
 
-最后更新: 2026-06-09
+最后更新: 2026-06-16

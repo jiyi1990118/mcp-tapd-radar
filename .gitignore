@@ -9,3 +9,4 @@ coverage/
 *.log
 *.db
 *.sqlite
+.mirror-cache.json

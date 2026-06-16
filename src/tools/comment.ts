@@ -5,6 +5,21 @@ import { QueryBuilder } from '../api/QueryBuilder.js';
 import { convertDataToArray } from '../utils/helpers.js';
 import { buildErrorResponse, buildListResponse, buildOperationResponse, toMcpError, toMcpText } from '../utils/response.js';
 
+/**
+ * TAPD API entry_type mapping:
+ * - user inputs: story | bug | task
+ * - API expects: stories | bug | tasks
+ */
+const ENTRY_TYPE_MAP: Record<string, string> = {
+  story: 'stories',
+  bug: 'bug',
+  task: 'tasks',
+};
+
+function toApiEntryType(input: string): string {
+  return ENTRY_TYPE_MAP[input] || input;
+}
+
 export function registerCommentTools(server: McpServer, client: TapdApiClient): void {
   server.registerTool(
     'tapd_list_comments',
@@ -21,14 +36,14 @@ export function registerCommentTools(server: McpServer, client: TapdApiClient): 
     },
     async (args) => {
       try {
+        const apiEntryType = toApiEntryType(args.entry_type);
         const qb = new QueryBuilder()
           .add('workspace_id', args.workspace_id)
-          .add('entry_type', args.entry_type)
+          .add('entry_type', apiEntryType)
           .add('entry_id', args.entry_id)
           .addPagination(args.limit, args.page);
 
-        const endpoint = args.entry_type === 'story' ? '/comments' : `/${args.entry_type}s/comments`;
-        const data = await client.get<Record<string, unknown>>(endpoint, Object.fromEntries(new URLSearchParams(qb.build())));
+        const data = await client.get<Record<string, unknown>>('/comments', Object.fromEntries(new URLSearchParams(qb.build())));
         return toMcpText(buildListResponse({
           tool: 'tapd_list_comments',
           entityType: 'comment',
@@ -59,16 +74,16 @@ export function registerCommentTools(server: McpServer, client: TapdApiClient): 
     },
     async (args) => {
       try {
+        const apiEntryType = toApiEntryType(args.entry_type);
         const body: Record<string, unknown> = {
           workspace_id: args.workspace_id,
-          entry_type: args.entry_type,
+          entry_type: apiEntryType,
           entry_id: args.entry_id,
           description: args.description,
         };
         if (args.author) body.author = args.author;
 
-        const endpoint = args.entry_type === 'story' ? '/comments' : `/${args.entry_type}s/comments`;
-        const data = await client.post<Record<string, unknown>>(endpoint, body);
+        const data = await client.post<Record<string, unknown>>('/comments', body);
         const comment = data ? Object.values(data)[0] : null;
         return toMcpText(buildOperationResponse({ tool: 'tapd_create_comment', action: 'created', entityType: 'comment', item: comment, entityId: args.entry_id, workspaceId: args.workspace_id }));
       } catch (error) {

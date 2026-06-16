@@ -114,6 +114,7 @@ Then in your MCP config:
 | `tapd_get_story` | Get detailed info for a single story | `workspace_id`, `story_id` |
 | `tapd_create_story` | Create a new story | `workspace_id`, `name` |
 | `tapd_update_story` | Update story fields (status, owner, priority, etc.) | `workspace_id`, `story_id` |
+| `tapd_batch_update_stories` | **Batch update multiple stories at once** | `workspace_id`, `story_ids` |
 | `tapd_count_stories` | Count stories matching filters | `workspace_id` |
 | `tapd_delete_story` | Delete a story | `workspace_id`, `story_id` |
 
@@ -133,6 +134,7 @@ Then in your MCP config:
 | `tapd_get_bug` | Get detailed info for a single bug | `workspace_id`, `bug_id` |
 | `tapd_create_bug` | Create a new bug | `workspace_id`, `title` |
 | `tapd_update_bug` | Update bug fields (status, severity, owner, etc.) | `workspace_id`, `bug_id` |
+| `tapd_batch_update_bugs` | **Batch update multiple bugs at once** | `workspace_id`, `bug_ids` |
 | `tapd_count_bugs` | Count bugs matching filters | `workspace_id` |
 | `tapd_delete_bug` | Delete a bug | `workspace_id`, `bug_id` |
 
@@ -152,6 +154,7 @@ Then in your MCP config:
 | `tapd_get_task` | Get detailed info for a single task | `workspace_id`, `task_id` |
 | `tapd_create_task` | Create a new task | `workspace_id`, `name` |
 | `tapd_update_task` | Update task fields (status, owner, due date, etc.) | `workspace_id`, `task_id` |
+| `tapd_batch_update_tasks` | **Batch update multiple tasks at once** | `workspace_id`, `task_ids` |
 | `tapd_count_tasks` | Count tasks matching filters | `workspace_id` |
 | `tapd_delete_task` | Delete a task | `workspace_id`, `task_id` |
 
@@ -169,13 +172,16 @@ Then in your MCP config:
 |---|---|---|
 | `tapd_list_iterations` | List iterations with filters for status, name search, time range | `workspace_id` |
 | `tapd_get_iteration` | Get detailed info for a single iteration | `workspace_id`, `iteration_id` |
+| `tapd_lock_iteration` | **Lock an iteration to prevent modifications** | `workspace_id`, `iteration_id` |
+| `tapd_unlock_iteration` | **Unlock an iteration to allow modifications** | `workspace_id`, `iteration_id` |
 
 **Usage examples:**
 
 > List all active iterations in this project
 > Show me details for iteration "Sprint 2024-06"
+> Lock iteration "Sprint Q1" to prevent further changes
+> Unlock iteration "Sprint Q2" to allow updates
 > List iterations created in the last month
-> Find all completed iterations
 
 ### Workspace Management
 
@@ -216,25 +222,29 @@ Then in your MCP config:
 > Search for members with "Zhang" in their name
 > Show details for user zhangsan
 
-### Webhook Management
+### Webhook Management (Local-only)
+
+> ⚠️ **TAPD Open API does not expose webhook management endpoints.** These tools operate on a local in-memory store for configuration tracking only. Actual webhook setup must be done via the TAPD web UI.
 
 | Tool | Description | Required Params |
 |---|---|---|
-| `tapd_list_webhooks` | List configured webhook subscriptions (local and remote) | `workspace_id` |
-| `tapd_create_webhook` | Register a new webhook subscription | `workspace_id`, `url`, `events` |
-| `tapd_delete_webhook` | Delete a webhook subscription | `webhook_id` |
+| `tapd_list_webhooks` | List locally recorded webhook configurations | `workspace_id` |
+| `tapd_create_webhook` | Record a webhook configuration locally | `workspace_id`, `url`, `events` |
+| `tapd_delete_webhook` | Remove a locally recorded webhook configuration | `webhook_id` |
 
 **Usage examples:**
 
-> Show me all webhooks configured for project 12345678
-> Create a webhook to notify https://my-server.com/hook when stories are created or updated
-> Delete webhook wh_1
+> Show me all webhooks I've configured locally
+> Record a webhook configuration for https://my-server.com/hook
+> Delete local webhook record wh_1
 
 ### Image Download
 
 | Tool | Description | Required Params |
 |---|---|---|
 | `tapd_download_image` | Download TAPD images that require authentication (e.g. prototype screenshots, mockups), returns base64 for AI analysis | `url` |
+
+> **Note on Labels:** TAPD labels are managed through the `label` field when creating/updating stories, bugs, and tasks. Labels are automatically created when first used.
 
 **Usage examples:**
 

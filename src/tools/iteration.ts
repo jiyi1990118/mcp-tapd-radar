@@ -69,4 +69,50 @@ export function registerIterationTools(server: McpServer, client: TapdApiClient)
       }
     }
   );
+
+  server.registerTool(
+    'tapd_lock_iteration',
+    {
+      title: 'Lock TAPD Iteration',
+      description: 'Lock an iteration to prevent modifications to stories, bugs, and tasks within it.',
+      inputSchema: {
+        workspace_id: z.string().describe('TAPD workspace/project ID'),
+        iteration_id: z.string().describe('The iteration ID to lock'),
+      },
+    },
+    async (args) => {
+      try {
+        await client.post('/iterations/lock', {
+          workspace_id: args.workspace_id,
+          id: args.iteration_id,
+        });
+        return toMcpText({ content: [{ type: 'text', text: `✅ Iteration ${args.iteration_id} locked successfully. Stories, bugs, and tasks in this iteration are now read-only.` }] });
+      } catch (error) {
+        return toMcpError(buildErrorResponse({ tool: 'tapd_lock_iteration', error, workspaceId: args.workspace_id, entityType: 'iteration', entityId: args.iteration_id }));
+      }
+    }
+  );
+
+  server.registerTool(
+    'tapd_unlock_iteration',
+    {
+      title: 'Unlock TAPD Iteration',
+      description: 'Unlock an iteration to allow modifications again.',
+      inputSchema: {
+        workspace_id: z.string().describe('TAPD workspace/project ID'),
+        iteration_id: z.string().describe('The iteration ID to unlock'),
+      },
+    },
+    async (args) => {
+      try {
+        await client.post('/iterations/unlock', {
+          workspace_id: args.workspace_id,
+          id: args.iteration_id,
+        });
+        return toMcpText({ content: [{ type: 'text', text: `✅ Iteration ${args.iteration_id} unlocked successfully. Stories, bugs, and tasks can now be modified.` }] });
+      } catch (error) {
+        return toMcpError(buildErrorResponse({ tool: 'tapd_unlock_iteration', error, workspaceId: args.workspace_id, entityType: 'iteration', entityId: args.iteration_id }));
+      }
+    }
+  );
 }
