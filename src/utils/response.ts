@@ -3,9 +3,9 @@ type AnyRecord = Record<string, unknown>;
 type McpContent = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string };
 
 const IMPORTANT_FIELDS: Record<string, string[]> = {
-  story: ['id', 'name', 'status', 'priority', 'priority_label', 'owner', 'iteration_id', 'begin', 'due', 'description'],
-  bug: ['id', 'title', 'status', 'severity', 'priority', 'current_owner', 'iteration_id', 'deadline', 'description'],
-  task: ['id', 'name', 'status', 'priority', 'owner', 'iteration_id', 'begin', 'due', 'description'],
+  story: ['id', 'name', 'status', 'priority', 'priority_label', 'owner', 'developer', 'iteration_id', 'begin', 'due', 'effort', 'description'],
+  bug: ['id', 'title', 'status', 'severity', 'priority', 'priority_label', 'current_owner', 'iteration_id', 'due', 'description', 'reporter'],
+  task: ['id', 'name', 'status', 'priority', 'priority_label', 'owner', 'iteration_id', 'begin', 'due', 'effort', 'description', 'story_id'],
   iteration: ['id', 'name', 'status', 'startdate', 'enddate', 'workspace_id'],
   workspace: ['id', 'name', 'status', 'pretty_name', 'workspace_type'],
   comment: ['id', 'entry_id', 'entry_type', 'description', 'author', 'created'],
@@ -56,10 +56,11 @@ export function buildEntitySummary(entityType: EntityType, item: unknown): AnyRe
   const summary: AnyRecord = { entity_type: entityType };
 
   for (const field of fields) {
-    if (record[field] !== undefined) summary[field] = field === 'description' ? compactText(record[field]) : record[field];
+    const value = record[field];
+    summary[field] = field === 'description' ? compactText(value ?? '') : (value ?? '');
   }
 
-  return compactObject(summary);
+  return summary;
 }
 
 function getEntityTitle(item: AnyRecord): string {

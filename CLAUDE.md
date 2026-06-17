@@ -88,6 +88,49 @@ src/
 
 **Imports**: ESM with Node16 module resolution — all local imports must use `.js` extension (e.g. `'./utils/helpers.js'`).
 
+## Story / Bug / Task Status Values
+
+**Status values are workflow-configurable per project** — different workspaces may have different status values. The following are the most common ones:
+
+### Story Status (`status` field)
+| Value | Chinese | When to use |
+|---|---|---|
+| `new` | 新建 | Freshly created story (default) |
+| `planning` | 规划中 | Under evaluation and planning |
+| `planned` | 需求排期 | Scheduled, awaiting development |
+| `developing` | 开发中 | Currently being developed |
+| `testing` | 测试中 | Dev complete, in QA verification |
+| `resolved` | 已解决 | Implementation finished |
+| `done` | 已完成 | Fully complete |
+| `closed` | 已关闭 | Closed |
+| `reopened` | 重新打开 | Re-opened after closure |
+| `rejected` | 已拒绝 | Rejected or abandoned |
+| `draft` | 草稿 | Draft state |
+| `deleted` | 已删除 | Set this to delete a story |
+
+> When a user refers to a status in Chinese (e.g. "需求排期"), map it to the corresponding English value (`planned`) before calling the API.
+
+### Bug Status
+| Value | Chinese |
+|---|---|
+| `new` | 新建 |
+| `in_progress` | 处理中 |
+| `resolved` | 已解决 |
+| `closed` | 已关闭 |
+| `reopened` | 重新打开 |
+| `rejected` | 已拒绝 |
+| `postponed` | 延期处理 |
+
+### Task Status
+| Value | Chinese |
+|---|---|
+| `new` | 新建 |
+| `in_progress` | 进行中 |
+| `resolved` | 已完成 |
+| `closed` | 已关闭 |
+| `reopened` | 重新打开 |
+| `rejected` | 已拒绝 |
+
 ## Development Rule: API Documentation First
 
 **Always consult `./Docs/tapd文档/API参考/` before implementing new tools or modifying existing ones.**

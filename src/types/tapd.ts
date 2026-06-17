@@ -16,12 +16,33 @@ export interface Story {
   status: string;
   owner: string;
   priority: string;
+  priority_label?: string;
   iteration_id?: string;
   begin?: string;
   due?: string;
   category_id?: string;
   parent_id?: string;
   children_id?: string;
+  developer?: string;
+  cc?: string;
+  version?: string;
+  module?: string;
+  test_focus?: string;
+  business_value?: string;
+  source?: string;
+  type?: string;
+  feature?: string;
+  tech_risk?: string;
+  effort?: string;
+  effort_completed?: string;
+  remain?: string;
+  exceed?: string;
+  release_id?: string;
+  workitem_type_id?: string;
+  label?: string;
+  size?: string;
+  current_user?: string;
+  templated_id?: string;
   custom_field_one?: string;
   custom_field_two?: string;
   custom_field_three?: string;
@@ -42,21 +63,39 @@ export interface Bug {
   current_owner: string;
   severity: string;
   priority: string;
+  priority_label?: string;
   status: string;
   created: string;
   modified: string;
   resolution?: string;
   deadline?: string;
+  due?: string;
+  begin?: string;
   platform?: string;
   os?: string;
   test_type?: string;
   source?: string;
   module?: string;
   iteration_id?: string;
+  cc?: string;
+  version_report?: string;
+  version_test?: string;
+  version_close?: string;
+  baseline_find?: string;
+  baseline_join?: string;
+  baseline_test?: string;
+  baseline_close?: string;
+  bugtype?: string;
+  effort?: string;
+  label?: string;
   custom_field_one?: string;
   custom_field_two?: string;
   custom_field_three?: string;
   custom_field_four?: string;
+  custom_field_five?: string;
+  custom_field_six?: string;
+  custom_field_seven?: string;
+  custom_field_eight?: string;
   [key: string]: string | undefined;
 }
 
@@ -69,16 +108,28 @@ export interface Task {
   owner: string;
   status: string;
   priority: string;
+  priority_label?: string;
   created: string;
   modified: string;
   begin?: string;
   due?: string;
   iteration_id?: string;
   category_id?: string;
+  story_id?: string;
+  effort?: string;
+  effort_completed?: string;
+  remain?: string;
+  exceed?: string;
+  cc?: string;
+  label?: string;
   custom_field_one?: string;
   custom_field_two?: string;
   custom_field_three?: string;
   custom_field_four?: string;
+  custom_field_five?: string;
+  custom_field_six?: string;
+  custom_field_seven?: string;
+  custom_field_eight?: string;
   [key: string]: string | undefined;
 }
 
@@ -154,9 +205,65 @@ export interface TokenResponse {
   now: string;
 }
 
-export type StoryStatus = 'new' | 'in_progress' | 'resolved' | 'closed' | 'reopened' | 'rejected' | 'draft';
-export type BugStatus = 'new' | 'in_progress' | 'resolved' | 'closed' | 'reopened' | 'rejected' | 'postponed';
+/**
+ * TAPD story status values.
+ * Note: Status values are workflow-configurable per project. The values below
+ * are the most common ones. Use `GET /workflows/story` or check the TAPD web
+ * UI to see the exact statuses configured for a workspace.
+ *
+ * Common values:
+ * - `new` — 新建
+ * - `planning` / `planned` — 规划中 / 需求排期
+ * - `developing` — 开发中
+ * - `testing` — 测试中
+ * - `resolved` — 已解决
+ * - `done` — 已完成
+ * - `closed` — 已关闭
+ * - `reopened` — 重新打开
+ * - `rejected` — 已拒绝
+ * - `draft` — 草稿
+ * - `deleted` — 已删除（用于删除需求）
+ */
+export type StoryStatus =
+  | 'new'
+  | 'planning'
+  | 'planned'
+  | 'developing'
+  | 'testing'
+  | 'resolved'
+  | 'done'
+  | 'closed'
+  | 'reopened'
+  | 'rejected'
+  | 'draft'
+  | 'deleted';
+
+/**
+ * TAPD bug status values.
+ * Note: Status values are workflow-configurable per project.
+ */
+export type BugStatus =
+  | 'new'
+  | 'in_progress'
+  | 'resolved'
+  | 'closed'
+  | 'reopened'
+  | 'rejected'
+  | 'postponed';
+
 export type BugSeverity = 'fatal' | 'serious' | 'normal' | 'slight' | 'suggest';
 export type BugPriority = 'urgent' | 'high' | 'medium' | 'low' | 'insignificant';
-export type TaskStatus = 'new' | 'in_progress' | 'resolved' | 'closed' | 'reopened' | 'rejected';
+
+/**
+ * TAPD task status values.
+ * Note: Status values are workflow-configurable per project.
+ */
+export type TaskStatus =
+  | 'new'
+  | 'in_progress'
+  | 'resolved'
+  | 'closed'
+  | 'reopened'
+  | 'rejected';
+
 export type IterationStatus = 'open' | 'done';
