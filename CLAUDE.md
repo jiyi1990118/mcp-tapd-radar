@@ -42,17 +42,17 @@ src/
 │   ├── TapdApiClient     # HTTP client with auth, retry, error classification, logging
 │   └── QueryBuilder      # Builds TAPD special query syntax (LIKE, EQ, time ranges)
 ├── tools/
-│   ├── story.ts          # tapd_list/get/create/update/batch_update/count/delete_stories
-│   ├── bug.ts            # tapd_list/get/create/update/batch_update/count/delete_bugs
-│   ├── task.ts           # tapd_list/get/create/update/batch_update/count/delete_tasks
-│   ├── iteration.ts      # tapd_list/get/lock/unlock_iterations (lock/unlock require special permissions)
+│   ├── story.ts          # tapd_list/get/create/update/batch_update/delete_stories
+│   ├── bug.ts            # tapd_list/get/create/update/batch_update/delete_bugs
+│   ├── task.ts           # tapd_list/get/create/update/batch_update/delete_tasks
+│   ├── iteration.ts      # tapd_list/get_iterations, tapd_set_iteration_lock (lock/unlock require special permissions)
+│   ├── workitem.ts       # tapd_count_workitems (counts stories|bugs|tasks via entity_type)
 │   ├── comment.ts        # tapd_list/create_comments
 │   ├── user.ts           # tapd_list/get_users
-│   ├── webhook.ts        # tapd_list/create/delete_webhooks (local-only store, TAPD API does not expose webhook endpoints)
 │   ├── workspace.ts      # tapd_list/get_workspaces
 │   ├── image.ts          # tapd_download_image
 │   └── ping.ts           # tapd_ping
-├── resources/workspace.ts  # MCP Resources: tapd://workspaces, tapd://workspace/{id}, etc.
+├── resources/workspace.ts  # MCP Resources: tapd://workspaces, tapd://workspace/{id}, tapd://webhooks/help, etc.
 ├── prompts/templates.ts    # MCP Prompts: bug triage, sprint planning, standup, etc.
 ├── types/tapd.ts           # All TAPD interface definitions
 └── utils/
@@ -76,9 +76,9 @@ src/
 
 **Labels**: TAPD does not have a standalone `/labels` API endpoint. Labels are managed through the `label` field on stories/bugs/tasks and are auto-created on first use.
 
-**Webhooks**: TAPD Open API does NOT expose `/webhooks` endpoints. The MCP webhook tools operate on a local in-memory store only. Real webhook configuration must be done via TAPD web UI.
+**Webhooks**: TAPD Open API does NOT expose `/webhooks` endpoints. The former `tapd_*_webhook` tools (local in-memory store, never created real webhooks) have been **removed**. A static `tapd://webhooks/help` MCP Resource documents how to configure webhooks via the TAPD web UI instead.
 
-**Iteration lock/unlock**: `POST /iterations/lock` and `POST /iterations/unlock` require special app permissions. If 403 is returned, the app lacks these permissions.
+**Iteration lock/unlock**: use `tapd_set_iteration_lock` with `locked: true|false`. The underlying `POST /iterations/lock` and `POST /iterations/unlock` require special app permissions. If 403 is returned, the app lacks these permissions.
 
 **Authentication**: `TapdAuthManager` caches tokens (7200s TTL) and auto-refreshes 60s before expiry. `TapdApiClient` retries once on 401/403 with `invalidateToken()`. Do not access private methods.
 
@@ -119,17 +119,16 @@ src/
 | `closed` | 已关闭 |
 | `reopened` | 重新打开 |
 | `rejected` | 已拒绝 |
+| `verified` | 已验证 |
 | `postponed` | 延期处理 |
 
 ### Task Status
 | Value | Chinese |
 |---|---|
-| `new` | 新建 |
-| `in_progress` | 进行中 |
-| `resolved` | 已完成 |
-| `closed` | 已关闭 |
-| `reopened` | 重新打开 |
-| `rejected` | 已拒绝 |
+| `open` | 打开 |
+| `progressing` | 进行中 |
+| `done` | 已完成 |
+| `suspended` | 已暂停 |
 
 ## Development Rule: API Documentation First
 

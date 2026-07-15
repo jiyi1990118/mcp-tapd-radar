@@ -4,6 +4,27 @@ import { convertDataToArray } from '../utils/helpers.js';
 
 export function registerResources(server: McpServer, client: TapdApiClient): void {
   server.registerResource(
+    'webhook-help',
+    'tapd://webhooks/help',
+    {
+      title: 'TAPD Webhook Configuration',
+      description: 'TAPD does not expose a webhook API. Read this to learn how to configure webhooks via the web UI.',
+      mimeType: 'application/json',
+    },
+    async (uri) => {
+      const body = {
+        note: 'TAPD Open Platform does NOT expose a /webhooks API. Webhook tools were removed because they only stored config in memory and never created real webhooks.',
+        instructions: 'Configure webhooks via the TAPD web UI (Project Settings > Webhooks), not via this MCP server.',
+        help_url: 'https://www.tapd.cn/help/view#1120003271001002318',
+        supported_events_hint: 'story::create, bug::update, task::status_change, etc.',
+      };
+      return {
+        contents: [{ uri: uri.href, text: JSON.stringify(body, null, 2), mimeType: 'application/json' }],
+      };
+    }
+  );
+
+  server.registerResource(
     'workspaces',
     'tapd://workspaces',
     {

@@ -4,7 +4,8 @@ import { TapdApiClient } from '../api/TapdApiClient.js';
 import { QueryBuilder } from '../api/QueryBuilder.js';
 import { convertDataToArray, pickDefined } from '../utils/helpers.js';
 import { buildTapdDetailContent, getTapdClientAuth } from '../utils/tapdImages.js';
-import { buildCountResponse, buildErrorResponse, buildListResponse, buildOperationResponse, toMcpError, toMcpText } from '../utils/response.js';
+import { resolveImageDiskSettings } from '../utils/imageConfig.js';
+import { buildErrorResponse, buildListResponse, buildOperationResponse, toMcpError, toMcpText } from '../utils/response.js';
 
 const TASK_FIELDS = [
   'name', 'description', 'status', 'owner', 'priority', 'priority_label',
@@ -20,21 +21,21 @@ export function registerTaskTools(server: McpServer, client: TapdApiClient): voi
     'tapd_list_tasks',
     {
       title: 'List TAPD Tasks',
-      description: 'List tasks in a TAPD workspace with filtering and pagination. Returns an array of task objects.',
+      description: 'Search/filter tasks in a TAPD workspace. Returns a summary list - NOT full details. Use tapd_get_task to fetch a single task detail by ID. Common use cases: find tasks by owner, status, or related story_id.',
       inputSchema: {
-        workspace_id: z.string().describe('TAPD workspace/project ID / 项目ID'),
-        id: z.string().optional().describe('Filter by task ID / 任务ID, supports multi-ID query'),
-        status: z.string().optional().describe('Status / 状态, supports OR with |. Common values: open(打开), progressing(进行中), done(已完成), suspended(已暂停)'),
-        owner: z.string().optional().describe('Owner/Handler / 处理人, supports fuzzy match'),
-        creator: z.string().optional().describe('Creator / 创建人, supports multi-user query'),
-        name: z.string().optional().describe('Fuzzy search by task name / 任务名称（模糊匹配）'),
-        priority: z.string().optional().describe('Priority / 优先级'),
-        priority_label: z.string().optional().describe('Priority label / 优先级（推荐使用，支持自定义优先级）'),
-        iteration_id: z.string().optional().describe('Iteration ID / 迭代ID. Use "<>id" for not equal'),
+        workspace_id: z.string().describe('TAPD workspace/project ID / 项目ID (from tapd_list_workspaces or TAPD URL, e.g. 48801209)'),
+        id: z.string().optional().describe('Filter by task ID / 任务ID, supports multi-ID comma-separated'),
+        status: z.string().optional().describe('Status / 状态, supports OR with |. Common: open(打开), progressing(进行中), done(已完成), suspended(已暂停). Values are workspace-configurable.'),
+        owner: z.string().optional().describe('Owner/Handler / 处理人 (fuzzy match, TAPD user name)'),
+        creator: z.string().optional().describe('Creator / 创建人 (supports multi-user with |)'),
+        name: z.string().optional().describe('Fuzzy search by task name / 任务名称（模糊匹配, LIKE<keyword>）'),
+        priority: z.string().optional().describe('Priority / 优先级 (numeric)'),
+        priority_label: z.string().optional().describe('Priority label / 优先级标签（推荐使用，支持自定义优先级）'),
+        iteration_id: z.string().optional().describe('Iteration ID / 迭代ID. Use "<>id" for NOT equal'),
         story_id: z.string().optional().describe('Related story ID / 关联需求ID'),
-        created: z.string().optional().describe('Created time / 创建时间. Supports >date, <date, date~date'),
-        modified: z.string().optional().describe('Modified time / 最后修改时间. Supports >date, <date, date~date'),
-        completed: z.string().optional().describe('Completed time / 完成时间. Supports >date, <date, date~date'),
+        created: z.string().optional().describe('Created time filter / 创建时间. Format: ">2026-01-01", "<2026-06-30", or "2026-01-01~2026-06-30"'),
+        modified: z.string().optional().describe('Modified time filter / 最后修改时间. Format: ">2026-01-01", "<2026-06-30", or "2026-01-01~2026-06-30"'),
+        completed: z.string().optional().describe('Completed time filter / 完成时间. Format: ">2026-01-01", "<2026-06-30", or "2026-01-01~2026-06-30"'),
         order: z.string().optional().describe('Sort order / 排序规则 (e.g. "created desc"), requires urlencode'),
         limit: z.number().optional().describe('Results per page / 每页数量（默认30，最大200）'),
         page: z.number().optional().describe('Page number / 页码（从1开始）'),
@@ -82,11 +83,13 @@ export function registerTaskTools(server: McpServer, client: TapdApiClient): voi
     'tapd_get_task',
     {
       title: 'Get TAPD Task Detail',
-      description: 'Get detailed information about a specific TAPD task by its ID.',
+      description: 'Get FULL detail of a single task by its ID, including description (HTML). Images in the description are auto-downloaded to local disk by default and image URLs are replaced with local file paths. Set download_images=false to keep remote URLs. Use tapd_list_tasks first to find the task_id.',
       inputSchema: {
         workspace_id: z.string().describe('TAPD workspace/project ID / 项目ID'),
-        task_id: z.string().describe('The task ID to retrieve / 任务ID'),
+        task_id: z.string().describe('The task ID to retrieve / 任务ID (from tapd_list_tasks "id" field)'),
         fields: z.string().optional().describe('Return fields / 返回字段（逗号分隔）'),
+        download_images: z.boolean().optional().describe('Download images in description to local disk & replace URLs with local paths. Defaults to env TAPD_IMAGE_DOWNLOAD_ENABLED (true). Set false to keep remote URLs.'),
+        image_dir: z.string().optional().describe('Local directory for downloaded images. Defaults to env TAPD_IMAGE_DOWNLOAD_DIR (./.tapd-images).'),
       },
     },
     async (args) => {
@@ -98,7 +101,8 @@ export function registerTaskTools(server: McpServer, client: TapdApiClient): voi
         const task = data ? Object.values(data)[0] : null;
         if (!task) return toMcpError(buildErrorResponse({ tool: 'tapd_get_task', error: new Error(`Task ${args.task_id} not found`), workspaceId: args.workspace_id, entityType: 'task', entityId: args.task_id }));
         const clientAuth = getTapdClientAuth(client);
-        return { content: await buildTapdDetailContent(task, { ...clientAuth, workspaceId: args.workspace_id }) };
+        const imageSettings = resolveImageDiskSettings({ enabled: args.download_images, downloadDir: args.image_dir });
+        return { content: await buildTapdDetailContent(task, { ...clientAuth, workspaceId: args.workspace_id, saveToDisk: imageSettings.enabled, downloadDir: imageSettings.downloadDir, downloadLimit: imageSettings.limit, concurrency: imageSettings.concurrency }) };
       } catch (error) {
         return toMcpError(buildErrorResponse({ tool: 'tapd_get_task', error, workspaceId: args.workspace_id, entityType: 'task', entityId: args.task_id }));
       }
@@ -109,12 +113,12 @@ export function registerTaskTools(server: McpServer, client: TapdApiClient): voi
     'tapd_create_task',
     {
       title: 'Create TAPD Task',
-      description: 'Create a new task in a TAPD workspace.',
+      description: 'Create a new task in a TAPD workspace. "name" is required. Only provided fields are set; others use TAPD defaults.',
       inputSchema: {
         workspace_id: z.string().describe('TAPD workspace/project ID / 项目ID'),
         name: z.string().describe('Task name / 任务名称 (required)'),
-        description: z.string().optional().describe('Task description / 详细描述'),
-        status: z.string().optional().describe('Status / 状态 (default: open). Common values: open(打开), progressing(进行中), done(已完成), suspended(已暂停)'),
+        description: z.string().optional().describe('Task description / 详细描述 (HTML allowed)'),
+        status: z.string().optional().describe('Status / 状态 (default: open). Common: open(打开), progressing(进行中), done(已完成), suspended(已暂停).'),
         owner: z.string().optional().describe('Owner/Handler / 处理人'),
         priority: z.string().optional().describe('Priority / 优先级'),
         priority_label: z.string().optional().describe('Priority label / 优先级（推荐使用，支持自定义优先级）'),
@@ -160,13 +164,13 @@ export function registerTaskTools(server: McpServer, client: TapdApiClient): voi
     'tapd_update_task',
     {
       title: 'Update TAPD Task',
-      description: 'Update an existing TAPD task. Only provided fields will be updated.',
+      description: 'Update an existing TAPD task. Only provided fields will be updated; omitted fields stay unchanged. Use tapd_get_task to verify before/after.',
       inputSchema: {
         workspace_id: z.string().describe('TAPD workspace/project ID / 项目ID'),
         task_id: z.string().describe('The task ID to update / 任务ID'),
         name: z.string().optional().describe('New task name / 任务名称'),
-        description: z.string().optional().describe('New description / 详细描述'),
-        status: z.string().optional().describe('New status / 状态. Common values: open(打开), progressing(进行中), done(已完成), suspended(已暂停)'),
+        description: z.string().optional().describe('New description / 详细描述 (HTML allowed)'),
+        status: z.string().optional().describe('New status / 状态. Common: open(打开), progressing(进行中), done(已完成), suspended(已暂停).'),
         owner: z.string().optional().describe('New owner/handler / 处理人'),
         priority: z.string().optional().describe('New priority / 优先级'),
         priority_label: z.string().optional().describe('New priority label / 优先级（推荐使用）'),
@@ -206,60 +210,10 @@ export function registerTaskTools(server: McpServer, client: TapdApiClient): voi
   );
 
   server.registerTool(
-    'tapd_count_tasks',
-    {
-      title: 'Count TAPD Tasks',
-      description: 'Count the number of tasks matching the given filters in a TAPD workspace.',
-      inputSchema: {
-        workspace_id: z.string().describe('TAPD workspace/project ID / 项目ID'),
-        id: z.string().optional().describe('Filter by task ID / 任务ID'),
-        status: z.string().optional().describe('Filter by status / 状态'),
-        owner: z.string().optional().describe('Filter by owner / 处理人'),
-        creator: z.string().optional().describe('Filter by creator / 创建人'),
-        priority: z.string().optional().describe('Filter by priority / 优先级'),
-        priority_label: z.string().optional().describe('Filter by priority label / 优先级'),
-        iteration_id: z.string().optional().describe('Filter by iteration ID / 迭代ID'),
-        story_id: z.string().optional().describe('Filter by related story ID / 关联需求ID'),
-        created: z.string().optional().describe('Filter by created time range / 创建时间'),
-        modified: z.string().optional().describe('Filter by modified time range / 最后修改时间'),
-        completed: z.string().optional().describe('Filter by completed time range / 完成时间'),
-      },
-    },
-    async (args) => {
-      try {
-        const qb = new QueryBuilder()
-          .add('workspace_id', args.workspace_id)
-          .add('id', args.id)
-          .addEnumOr('status', args.status)
-          .add('owner', args.owner)
-          .add('creator', args.creator)
-          .add('priority', args.priority)
-          .add('priority_label', args.priority_label)
-          .add('iteration_id', args.iteration_id)
-          .add('story_id', args.story_id)
-          .addTimeRange('created', args.created)
-          .addTimeRange('modified', args.modified)
-          .addTimeRange('completed', args.completed);
-
-        const data = await client.get<{ count: number }>('/tasks/count', Object.fromEntries(new URLSearchParams(qb.build())));
-        return toMcpText(buildCountResponse({
-          tool: 'tapd_count_tasks',
-          entityType: 'task',
-          count: data,
-          workspaceId: args.workspace_id,
-          filters: pickDefined(args as Record<string, unknown>, ['id', 'status', 'owner', 'creator', 'priority', 'priority_label', 'iteration_id', 'story_id', 'created', 'modified', 'completed']),
-        }));
-      } catch (error) {
-        return toMcpError(buildErrorResponse({ tool: 'tapd_count_tasks', error, workspaceId: args.workspace_id, entityType: 'task' }));
-      }
-    }
-  );
-
-  server.registerTool(
     'tapd_delete_task',
     {
       title: 'Delete TAPD Task',
-      description: 'Delete a TAPD task by its ID.',
+      description: 'Delete a TAPD task (soft-delete via status=deleted). The task is moved to trash, not permanently erased.',
       inputSchema: {
         workspace_id: z.string().describe('TAPD workspace/project ID / 项目ID'),
         task_id: z.string().describe('The task ID to delete / 任务ID'),
@@ -283,13 +237,13 @@ export function registerTaskTools(server: McpServer, client: TapdApiClient): voi
     'tapd_batch_update_tasks',
     {
       title: 'Batch Update TAPD Tasks',
-      description: 'Update multiple tasks at once with the same field values.',
+      description: 'Update multiple tasks at once with the SAME field values (e.g. assign all to one owner, or change status for many). More efficient than calling tapd_update_task repeatedly. Use task_ids (comma-separated).',
       inputSchema: {
         workspace_id: z.string().describe('TAPD workspace/project ID / 项目ID'),
-        task_ids: z.string().describe('Comma-separated task IDs / 任务ID列表'),
-        status: z.string().optional().describe('New status / 状态. Common values: open(打开), progressing(进行中), done(已完成), suspended(已暂停)'),
+        task_ids: z.string().describe('Comma-separated task IDs / 任务ID列表, e.g. "123,456,789"'),
+        status: z.string().optional().describe('New status / 状态. Common: open(打开), progressing(进行中), done(已完成), suspended(已暂停).'),
         owner: z.string().optional().describe('New owner / 处理人'),
-        priority: z.string().optional().describe('New priority / 优先级'),
+        priority: z.string().optional().describe('New priority / 优先级 (numeric)'),
       },
     },
     async (args) => {

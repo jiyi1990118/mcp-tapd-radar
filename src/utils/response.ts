@@ -1,4 +1,6 @@
-type EntityType = 'story' | 'bug' | 'task' | 'iteration' | 'workspace' | 'comment' | 'user' | 'webhook' | string;
+import { unwrapTapdEntity } from './helpers.js';
+
+type EntityType = 'story' | 'bug' | 'task' | 'iteration' | 'workspace' | 'comment' | 'user' | string;
 type AnyRecord = Record<string, unknown>;
 type McpContent = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string };
 
@@ -10,7 +12,6 @@ const IMPORTANT_FIELDS: Record<string, string[]> = {
   workspace: ['id', 'name', 'status', 'pretty_name', 'workspace_type'],
   comment: ['id', 'entry_id', 'entry_type', 'description', 'author', 'created'],
   user: ['id', 'name', 'nick', 'email', 'status'],
-  webhook: ['id', 'url', 'events', 'status', 'created'],
 };
 
 function compactObject(value: AnyRecord): AnyRecord {
@@ -29,16 +30,6 @@ function compactText(value: unknown): unknown {
     .replace(/&#39;/g, "'")
     .replace(/\s+/g, ' ')
     .trim();
-}
-
-function unwrapTapdEntity(item: unknown): unknown {
-  if (!item || typeof item !== 'object' || Array.isArray(item)) return item;
-  const record = item as AnyRecord;
-  const keys = Object.keys(record);
-  if (keys.length === 1 && record[keys[0]] && typeof record[keys[0]] === 'object') {
-    return record[keys[0]];
-  }
-  return item;
 }
 
 export function toMcpText(payload: unknown): { content: McpContent[] } {

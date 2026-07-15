@@ -4,7 +4,8 @@ import { TapdApiClient } from '../api/TapdApiClient.js';
 import { QueryBuilder } from '../api/QueryBuilder.js';
 import { convertDataToArray, pickDefined } from '../utils/helpers.js';
 import { buildTapdDetailContent, getTapdClientAuth } from '../utils/tapdImages.js';
-import { buildCountResponse, buildErrorResponse, buildListResponse, buildOperationResponse, toMcpError, toMcpText } from '../utils/response.js';
+import { resolveImageDiskSettings } from '../utils/imageConfig.js';
+import { buildErrorResponse, buildListResponse, buildOperationResponse, toMcpError, toMcpText } from '../utils/response.js';
 
 const BUG_FIELDS = [
   'title', 'description', 'severity', 'priority', 'priority_label',
@@ -23,25 +24,25 @@ export function registerBugTools(server: McpServer, client: TapdApiClient): void
     'tapd_list_bugs',
     {
       title: 'List TAPD Bugs',
-      description: 'List bugs (defects) in a TAPD workspace with filtering and pagination. Returns an array of bug objects.',
+      description: 'Search/filter bugs (defects) in a TAPD workspace. Returns a summary list - NOT full details. Use tapd_get_bug to fetch a single bug detail by ID. Common use cases: find bugs by severity, current_owner, status, or iteration.',
       inputSchema: {
-        workspace_id: z.string().describe('TAPD workspace/project ID / 项目ID'),
-        id: z.string().optional().describe('Filter by bug ID / 缺陷ID, supports multi-ID query'),
-        status: z.string().optional().describe('Status / 状态, supports OR with |. Common values: new(新建), in_progress(处理中), resolved(已解决), closed(已关闭), reopened(重新打开), rejected(已拒绝), postponed(延期处理), verified(已验证)'),
-        severity: z.string().optional().describe('Severity / 严重程度: fatal(致命)|serious(严重)|normal(一般)|slight(轻微)|suggest(建议)'),
+        workspace_id: z.string().describe('TAPD workspace/project ID / 项目ID (from tapd_list_workspaces or TAPD URL, e.g. 48801209)'),
+        id: z.string().optional().describe('Filter by bug ID / 缺陷ID, supports multi-ID comma-separated'),
+        status: z.string().optional().describe('Status / 状态, supports OR with |. Common: new(新建), in_progress(处理中), resolved(已解决), closed(已关闭), reopened(重新打开), rejected(已拒绝), postponed(延期处理), verified(已验证). Values are workspace-configurable.'),
+        severity: z.string().optional().describe('Severity / 严重程度, supports OR with |: fatal(致命)|serious(严重)|normal(一般)|slight(轻微)|suggest(建议)'),
         priority: z.string().optional().describe('Priority / 优先级: urgent|high|medium|low|insignificant'),
-        priority_label: z.string().optional().describe('Priority label / 优先级（推荐使用）'),
-        current_owner: z.string().optional().describe('Current handler / 当前处理人, supports fuzzy match'),
-        reporter: z.string().optional().describe('Reporter / 报告人, supports fuzzy match'),
-        creator: z.string().optional().describe('Creator / 创建人, supports multi-user query'),
-        title: z.string().optional().describe('Fuzzy search by bug title / 标题（模糊匹配）'),
-        iteration_id: z.string().optional().describe('Iteration ID / 迭代ID. Use "<>id" for not equal'),
+        priority_label: z.string().optional().describe('Priority label / 优先级标签（推荐使用）'),
+        current_owner: z.string().optional().describe('Current handler / 当前处理人 (fuzzy match, TAPD user name)'),
+        reporter: z.string().optional().describe('Reporter / 报告人 (fuzzy match)'),
+        creator: z.string().optional().describe('Creator / 创建人 (supports multi-user with |)'),
+        title: z.string().optional().describe('Fuzzy search by bug title / 标题（模糊匹配, LIKE<keyword>）'),
+        iteration_id: z.string().optional().describe('Iteration ID / 迭代ID. Use "<>id" for NOT equal'),
         module: z.string().optional().describe('Module / 模块'),
-        label: z.string().optional().describe('Label / 标签, supports enum query'),
-        created: z.string().optional().describe('Created time / 创建时间. Supports >date, <date, date~date'),
-        modified: z.string().optional().describe('Modified time / 最后修改时间. Supports >date, <date, date~date'),
-        resolved: z.string().optional().describe('Resolved time / 解决时间. Supports >date, <date, date~date'),
-        closed: z.string().optional().describe('Closed time / 关闭时间. Supports >date, <date, date~date'),
+        label: z.string().optional().describe('Label / 标签 (supports enum query)'),
+        created: z.string().optional().describe('Created time filter / 创建时间. Format: ">2026-01-01", "<2026-06-30", or "2026-01-01~2026-06-30"'),
+        modified: z.string().optional().describe('Modified time filter / 最后修改时间. Format: ">2026-01-01", "<2026-06-30", or "2026-01-01~2026-06-30"'),
+        resolved: z.string().optional().describe('Resolved time filter / 解决时间. Format: ">2026-01-01", "<2026-06-30", or "2026-01-01~2026-06-30"'),
+        closed: z.string().optional().describe('Closed time filter / 关闭时间. Format: ">2026-01-01", "<2026-06-30", or "2026-01-01~2026-06-30"'),
         order: z.string().optional().describe('Sort order / 排序规则 (e.g. "created desc"), requires urlencode'),
         limit: z.number().optional().describe('Results per page / 每页数量（默认30，最大200）'),
         page: z.number().optional().describe('Page number / 页码（从1开始）'),
@@ -93,11 +94,13 @@ export function registerBugTools(server: McpServer, client: TapdApiClient): void
     'tapd_get_bug',
     {
       title: 'Get TAPD Bug Detail',
-      description: 'Get detailed information about a specific TAPD bug by its ID.',
+      description: 'Get FULL detail of a single bug by its ID, including description (HTML). Images in the description are auto-downloaded to local disk by default and image URLs are replaced with local file paths. Set download_images=false to keep remote URLs. Use tapd_list_bugs first to find the bug_id.',
       inputSchema: {
         workspace_id: z.string().describe('TAPD workspace/project ID / 项目ID'),
-        bug_id: z.string().describe('The bug ID to retrieve / 缺陷ID'),
+        bug_id: z.string().describe('The bug ID to retrieve / 缺陷ID (from tapd_list_bugs "id" field)'),
         fields: z.string().optional().describe('Return fields / 返回字段（逗号分隔）'),
+        download_images: z.boolean().optional().describe('Download images in description to local disk & replace URLs with local paths. Defaults to env TAPD_IMAGE_DOWNLOAD_ENABLED (true). Set false to keep remote URLs.'),
+        image_dir: z.string().optional().describe('Local directory for downloaded images. Defaults to env TAPD_IMAGE_DOWNLOAD_DIR (./.tapd-images).'),
       },
     },
     async (args) => {
@@ -109,7 +112,8 @@ export function registerBugTools(server: McpServer, client: TapdApiClient): void
         const bug = data ? Object.values(data)[0] : null;
         if (!bug) return toMcpError(buildErrorResponse({ tool: 'tapd_get_bug', error: new Error(`Bug ${args.bug_id} not found`), workspaceId: args.workspace_id, entityType: 'bug', entityId: args.bug_id }));
         const clientAuth = getTapdClientAuth(client);
-        return { content: await buildTapdDetailContent(bug, { ...clientAuth, workspaceId: args.workspace_id }) };
+        const imageSettings = resolveImageDiskSettings({ enabled: args.download_images, downloadDir: args.image_dir });
+        return { content: await buildTapdDetailContent(bug, { ...clientAuth, workspaceId: args.workspace_id, saveToDisk: imageSettings.enabled, downloadDir: imageSettings.downloadDir, downloadLimit: imageSettings.limit, concurrency: imageSettings.concurrency }) };
       } catch (error) {
         return toMcpError(buildErrorResponse({ tool: 'tapd_get_bug', error, workspaceId: args.workspace_id, entityType: 'bug', entityId: args.bug_id }));
       }
@@ -120,18 +124,18 @@ export function registerBugTools(server: McpServer, client: TapdApiClient): void
     'tapd_create_bug',
     {
       title: 'Create TAPD Bug',
-      description: 'Create a new bug (defect) in a TAPD workspace.',
+      description: 'Create a new bug (defect) in a TAPD workspace. "title" is required. Only provided fields are set; others use TAPD defaults.',
       inputSchema: {
         workspace_id: z.string().describe('TAPD workspace/project ID / 项目ID'),
         title: z.string().describe('Bug title / 缺陷标题 (required)'),
-        description: z.string().optional().describe('Bug description / 详细描述'),
+        description: z.string().optional().describe('Bug description / 详细描述 (HTML allowed)'),
         severity: z.string().optional().describe('Severity / 严重程度: fatal(致命)|serious(严重)|normal(一般)|slight(轻微)|suggest(建议)'),
         priority: z.string().optional().describe('Priority / 优先级: urgent|high|medium|low|insignificant'),
         priority_label: z.string().optional().describe('Priority label / 优先级（推荐使用，支持自定义优先级）'),
         current_owner: z.string().optional().describe('Current handler / 当前处理人'),
         reporter: z.string().optional().describe('Reporter / 报告人'),
         cc: z.string().optional().describe('CC/Copy-to users / 抄送人'),
-        status: z.string().optional().describe('Status / 状态 (default: new). Common values: new(新建), in_progress(处理中), resolved(已解决), closed(已关闭), reopened(重新打开), rejected(已拒绝), postponed(延期处理), verified(已验证)'),
+        status: z.string().optional().describe('Status / 状态 (default: new). Common: new, in_progress, resolved, closed, reopened, rejected, postponed, verified.'),
         deadline: z.string().optional().describe('Deadline / 解决期限 (YYYY-MM-DD)'),
         due: z.string().optional().describe('Due date / 预计结束 (YYYY-MM-DD)'),
         begin: z.string().optional().describe('Begin date / 预计开始 (YYYY-MM-DD)'),
@@ -181,17 +185,17 @@ export function registerBugTools(server: McpServer, client: TapdApiClient): void
     'tapd_update_bug',
     {
       title: 'Update TAPD Bug',
-      description: 'Update an existing TAPD bug. Only provided fields will be updated.',
+      description: 'Update an existing TAPD bug. Only provided fields will be updated; omitted fields stay unchanged. Use tapd_get_bug to verify before/after.',
       inputSchema: {
         workspace_id: z.string().describe('TAPD workspace/project ID / 项目ID'),
         bug_id: z.string().describe('The bug ID to update / 缺陷ID'),
         title: z.string().optional().describe('New bug title / 标题'),
-        description: z.string().optional().describe('New description / 详细描述'),
+        description: z.string().optional().describe('New description / 详细描述 (HTML allowed)'),
         severity: z.string().optional().describe('New severity / 严重程度: fatal(致命)|serious(严重)|normal(一般)|slight(轻微)|suggest(建议)'),
         priority: z.string().optional().describe('New priority / 优先级: urgent|high|medium|low|insignificant'),
         priority_label: z.string().optional().describe('New priority label / 优先级（推荐使用）'),
         current_owner: z.string().optional().describe('New handler / 当前处理人'),
-        status: z.string().optional().describe('New status / 状态. Common values: new(新建), in_progress(处理中), resolved(已解决), closed(已关闭), reopened(重新打开), rejected(已拒绝), postponed(延期处理), verified(已验证)'),
+        status: z.string().optional().describe('New status / 状态. Common: new, in_progress, resolved, closed, reopened, rejected, postponed, verified.'),
         deadline: z.string().optional().describe('New deadline / 解决期限 (YYYY-MM-DD)'),
         due: z.string().optional().describe('New due date / 预计结束 (YYYY-MM-DD)'),
         begin: z.string().optional().describe('New begin date / 预计开始 (YYYY-MM-DD)'),
@@ -241,68 +245,10 @@ export function registerBugTools(server: McpServer, client: TapdApiClient): void
   );
 
   server.registerTool(
-    'tapd_count_bugs',
-    {
-      title: 'Count TAPD Bugs',
-      description: 'Count the number of bugs matching the given filters in a TAPD workspace.',
-      inputSchema: {
-        workspace_id: z.string().describe('TAPD workspace/project ID / 项目ID'),
-        id: z.string().optional().describe('Filter by bug ID / 缺陷ID'),
-        status: z.string().optional().describe('Filter by status / 状态'),
-        severity: z.string().optional().describe('Filter by severity / 严重程度'),
-        priority: z.string().optional().describe('Filter by priority / 优先级'),
-        priority_label: z.string().optional().describe('Filter by priority label / 优先级'),
-        current_owner: z.string().optional().describe('Filter by current handler / 当前处理人'),
-        reporter: z.string().optional().describe('Filter by reporter / 报告人'),
-        creator: z.string().optional().describe('Filter by creator / 创建人'),
-        iteration_id: z.string().optional().describe('Filter by iteration ID / 迭代ID'),
-        module: z.string().optional().describe('Filter by module / 模块'),
-        label: z.string().optional().describe('Filter by label / 标签'),
-        created: z.string().optional().describe('Filter by created time range / 创建时间'),
-        modified: z.string().optional().describe('Filter by modified time range / 最后修改时间'),
-        resolved: z.string().optional().describe('Filter by resolved time range / 解决时间'),
-        closed: z.string().optional().describe('Filter by closed time range / 关闭时间'),
-      },
-    },
-    async (args) => {
-      try {
-        const qb = new QueryBuilder()
-          .add('workspace_id', args.workspace_id)
-          .add('id', args.id)
-          .addEnumOr('status', args.status)
-          .addEnumOr('severity', args.severity)
-          .addEnumOr('priority', args.priority)
-          .add('priority_label', args.priority_label)
-          .add('current_owner', args.current_owner)
-          .add('reporter', args.reporter)
-          .add('creator', args.creator)
-          .add('iteration_id', args.iteration_id)
-          .add('module', args.module)
-          .addEnumOr('label', args.label)
-          .addTimeRange('created', args.created)
-          .addTimeRange('modified', args.modified)
-          .addTimeRange('resolved', args.resolved)
-          .addTimeRange('closed', args.closed);
-
-        const data = await client.get<{ count: number }>('/bugs/count', Object.fromEntries(new URLSearchParams(qb.build())));
-        return toMcpText(buildCountResponse({
-          tool: 'tapd_count_bugs',
-          entityType: 'bug',
-          count: data,
-          workspaceId: args.workspace_id,
-          filters: pickDefined(args as Record<string, unknown>, ['id', 'status', 'severity', 'priority', 'priority_label', 'current_owner', 'reporter', 'creator', 'iteration_id', 'module', 'label', 'created', 'modified', 'resolved', 'closed']),
-        }));
-      } catch (error) {
-        return toMcpError(buildErrorResponse({ tool: 'tapd_count_bugs', error, workspaceId: args.workspace_id, entityType: 'bug' }));
-      }
-    }
-  );
-
-  server.registerTool(
     'tapd_delete_bug',
     {
       title: 'Delete TAPD Bug',
-      description: 'Delete a TAPD bug by its ID.',
+      description: 'Delete a TAPD bug (soft-delete via status=deleted). The bug is moved to trash, not permanently erased.',
       inputSchema: {
         workspace_id: z.string().describe('TAPD workspace/project ID / 项目ID'),
         bug_id: z.string().describe('The bug ID to delete / 缺陷ID'),
@@ -326,13 +272,13 @@ export function registerBugTools(server: McpServer, client: TapdApiClient): void
     'tapd_batch_update_bugs',
     {
       title: 'Batch Update TAPD Bugs',
-      description: 'Update multiple bugs at once with the same field values.',
+      description: 'Update multiple bugs at once with the SAME field values (e.g. assign all to one owner, or change severity for many). More efficient than calling tapd_update_bug repeatedly. Use bug_ids (comma-separated).',
       inputSchema: {
         workspace_id: z.string().describe('TAPD workspace/project ID / 项目ID'),
-        bug_ids: z.string().describe('Comma-separated bug IDs / 缺陷ID列表'),
-        status: z.string().optional().describe('New status / 状态. Common values: new(新建), in_progress(处理中), resolved(已解决), closed(已关闭), reopened(重新打开), rejected(已拒绝), postponed(延期处理), verified(已验证)'),
+        bug_ids: z.string().describe('Comma-separated bug IDs / 缺陷ID列表, e.g. "123,456,789"'),
+        status: z.string().optional().describe('New status / 状态. Common: new, in_progress, resolved, closed, reopened, rejected, postponed, verified.'),
         current_owner: z.string().optional().describe('New owner / 当前处理人'),
-        severity: z.string().optional().describe('New severity / 严重程度: fatal(致命)|serious(严重)|normal(一般)|slight(轻微)|suggest(建议)'),
+        severity: z.string().optional().describe('New severity / 严重程度: fatal|serious|normal|slight|suggest'),
         priority: z.string().optional().describe('New priority / 优先级: urgent|high|medium|low|insignificant'),
       },
     },
@@ -345,7 +291,6 @@ export function registerBugTools(server: McpServer, client: TapdApiClient): void
 
         const body = {
           workspace_id: args.workspace_id,
-          project_id: args.workspace_id,
           workitems,
         };
         await client.post('/bugs/batch_update_bug', body);

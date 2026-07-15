@@ -10,12 +10,12 @@ export function registerWorkspaceTools(server: McpServer, client: TapdApiClient)
     'tapd_list_workspaces',
     {
       title: 'List TAPD Workspaces',
-      description: 'List all accessible TAPD workspaces (projects). Returns an array of workspace objects.',
+      description: 'List all TAPD workspaces (projects) the authenticated app can access. The "id" field in the result IS the workspace_id required by most other tools. No workspace_id needed here. Use this first if you do not know the workspace ID.',
       inputSchema: {
-        name: z.string().optional().describe('Fuzzy search by workspace name'),
-        status: z.string().optional().describe('Filter by workspace status'),
-        limit: z.number().optional().describe('Results per page (default 30, max 200)'),
-        page: z.number().optional().describe('Page number (starts from 1)'),
+        name: z.string().optional().describe('Fuzzy search by workspace name / 按项目名称模糊搜索'),
+        status: z.string().optional().describe('Filter by workspace status / 按状态过滤'),
+        limit: z.number().optional().describe('Results per page / 每页数量（默认30，最大200）'),
+        page: z.number().optional().describe('Page number / 页码（从1开始）'),
       },
     },
     async (args) => {
@@ -46,7 +46,7 @@ export function registerWorkspaceTools(server: McpServer, client: TapdApiClient)
       title: 'Get TAPD Workspace Detail',
       description: 'Get detailed information about a specific TAPD workspace by its ID.',
       inputSchema: {
-        workspace_id: z.string().describe('TAPD workspace/project ID'),
+        workspace_id: z.string().describe('TAPD workspace/project ID / 项目ID (from tapd_list_workspaces "id" field)'),
       },
     },
     async (args) => {

@@ -6,7 +6,6 @@
 
 import { TapdApiClient } from './api/TapdApiClient.js';
 import { QueryBuilder } from './api/QueryBuilder.js';
-import { convertDataToArray, pickDefined } from './utils/helpers.js';
 
 const WORKSPACE_ID = '48801209';
 const TEST_STORY_ID = '1148801209001019018';
@@ -35,8 +34,8 @@ async function runTest(name: string, endpoint: string, fn: () => Promise<unknown
     const elapsed = Date.now() - start;
     log('PASS', `${name} (${endpoint}) - ${elapsed}ms`);
     return { tool: name, endpoint, status: 'PASS', details: JSON.stringify(result).substring(0, 200) };
-  } catch (error: any) {
-    const msg = error.message || String(error);
+  } catch (error: unknown) {
+    const msg = (error as Error).message || String(error);
     log('FAIL', `${name} (${endpoint}) - ${msg.substring(0, 100)}`);
     return { tool: name, endpoint, status: 'FAIL', error: msg };
   }
@@ -104,7 +103,7 @@ async function main() {
   ));
 
   results.push(await runTest(
-    'tapd_count_stories',
+    'tapd_count_workitems (stories)',
     'GET /stories/count',
     async () => client.get('/stories/count', { workspace_id: WORKSPACE_ID })
   ));
@@ -119,7 +118,7 @@ async function main() {
         name: `[测试删除-${Date.now()}] 待删除需求`,
       });
       const storyObj = created ? Object.values(created)[0] : null;
-      const storyId = storyObj ? (storyObj as any).id : null;
+      const storyId = storyObj ? (storyObj as Record<string, string>).id : null;
       if (!storyId) throw new Error('创建失败');
       return client.post('/stories', {
         workspace_id: WORKSPACE_ID,
@@ -181,7 +180,7 @@ async function main() {
   ));
 
   results.push(await runTest(
-    'tapd_count_bugs',
+    'tapd_count_workitems (bugs)',
     'GET /bugs/count',
     async () => client.get('/bugs/count', { workspace_id: WORKSPACE_ID })
   ));
@@ -195,7 +194,7 @@ async function main() {
         title: `[测试删除-${Date.now()}] 待删除缺陷`,
       });
       const bugObj = created ? Object.values(created)[0] : null;
-      const bugId = bugObj ? (bugObj as any).id : null;
+      const bugId = bugObj ? (bugObj as Record<string, string>).id : null;
       if (!bugId) throw new Error('创建失败');
       return client.post('/bugs', {
         workspace_id: WORKSPACE_ID,
@@ -256,7 +255,7 @@ async function main() {
   ));
 
   results.push(await runTest(
-    'tapd_count_tasks',
+    'tapd_count_workitems (tasks)',
     'GET /tasks/count',
     async () => client.get('/tasks/count', { workspace_id: WORKSPACE_ID })
   ));
@@ -270,7 +269,7 @@ async function main() {
         name: `[测试删除-${Date.now()}] 待删除任务`,
       });
       const taskObj = created ? Object.values(created)[0] : null;
-      const taskId = taskObj ? (taskObj as any).id : null;
+      const taskId = taskObj ? (taskObj as Record<string, string>).id : null;
       if (!taskId) throw new Error('创建失败');
       return client.post('/tasks', {
         workspace_id: WORKSPACE_ID,
@@ -302,7 +301,7 @@ async function main() {
   ));
 
   results.push(await runTest(
-    'tapd_lock_iteration',
+    'tapd_set_iteration_lock (lock)',
     'POST /iterations/lock',
     async () => client.post('/iterations/lock', {
       workspace_id: WORKSPACE_ID,
@@ -311,7 +310,7 @@ async function main() {
   ));
 
   results.push(await runTest(
-    'tapd_unlock_iteration',
+    'tapd_set_iteration_lock (unlock)',
     'POST /iterations/unlock',
     async () => client.post('/iterations/unlock', {
       workspace_id: WORKSPACE_ID,

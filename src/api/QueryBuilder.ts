@@ -1,3 +1,5 @@
+import { MAX_PAGE_SIZE } from '../utils/pagination.js';
+
 /**
  * QueryBuilder for TAPD API query parameters.
  * Handles special query syntax: LIKE, LIKE_OR, EQ, NOT_EQ, CONTAINS,
@@ -73,7 +75,7 @@ export class QueryBuilder {
   }
 
   addPagination(limit?: number, page?: number): this {
-    if (limit !== undefined) this.params['limit'] = String(Math.min(limit, 200));
+    if (limit !== undefined) this.params['limit'] = String(Math.min(limit, MAX_PAGE_SIZE));
     if (page !== undefined) this.params['page'] = String(Math.max(page, 1));
     return this;
   }

@@ -115,7 +115,6 @@ Then in your MCP config:
 | `tapd_create_story` | Create a new story | `workspace_id`, `name` |
 | `tapd_update_story` | Update story fields | `workspace_id`, `story_id` |
 | `tapd_batch_update_stories` | Batch update multiple stories | `workspace_id`, `story_ids` |
-| `tapd_count_stories` | Count stories matching filters | `workspace_id` |
 | `tapd_delete_story` | Delete a story (sets status=deleted) | `workspace_id`, `story_id` |
 
 #### Story Create/Update Fields
@@ -194,7 +193,6 @@ The following fields are returned in every story response (`data.item`):
 | `tapd_create_bug` | Create a new bug | `workspace_id`, `title` |
 | `tapd_update_bug` | Update bug fields | `workspace_id`, `bug_id` |
 | `tapd_batch_update_bugs` | Batch update multiple bugs | `workspace_id`, `bug_ids` |
-| `tapd_count_bugs` | Count bugs matching filters | `workspace_id` |
 | `tapd_delete_bug` | Delete a bug (sets status=deleted) | `workspace_id`, `bug_id` |
 
 #### Bug Create/Update Fields
@@ -263,7 +261,6 @@ The following fields are returned in every bug response (`data.item`):
 | `tapd_create_task` | Create a new task | `workspace_id`, `name` |
 | `tapd_update_task` | Update task fields | `workspace_id`, `task_id` |
 | `tapd_batch_update_tasks` | Batch update multiple tasks | `workspace_id`, `task_ids` |
-| `tapd_count_tasks` | Count tasks matching filters | `workspace_id` |
 | `tapd_delete_task` | Delete a task (sets status=deleted) | `workspace_id`, `task_id` |
 
 #### Task Create/Update Fields
@@ -387,8 +384,7 @@ The following fields are returned in every task response (`data.item`):
 |---|---|---|
 | `tapd_list_iterations` | List iterations with name/status/time filters | `workspace_id` |
 | `tapd_get_iteration` | Get iteration detail | `workspace_id`, `iteration_id` |
-| `tapd_lock_iteration` | Lock iteration (requires special permission) | `workspace_id`, `iteration_id` |
-| `tapd_unlock_iteration` | Unlock iteration (requires special permission) | `workspace_id`, `iteration_id` |
+| `tapd_set_iteration_lock` | Lock or unlock an iteration (requires special permission) | `workspace_id`, `iteration_id`, `locked` |
 
 ### Workspace Management / 项目空间
 
@@ -413,15 +409,17 @@ The following fields are returned in every task response (`data.item`):
 | `tapd_list_users` | List workspace members | `workspace_id` |
 | `tapd_get_user` | Get user detail | `workspace_id`, `user_id` |
 
-### Webhook Management / Webhook 管理 (Local-only)
-
-> ⚠️ TAPD Open API does not expose webhook management endpoints. These tools operate on a local in-memory store for configuration tracking only. Actual webhook setup must be done via the TAPD web UI.
+### Workitem Count / 工作项计数
 
 | Tool | Description | Required |
 |---|---|---|
-| `tapd_list_webhooks` | List local webhook records | `workspace_id` |
-| `tapd_create_webhook` | Record a webhook config locally | `workspace_id`, `url`, `events` |
-| `tapd_delete_webhook` | Remove a local webhook record | `webhook_id` |
+| `tapd_count_workitems` | Count stories/bugs/tasks matching filters | `workspace_id`, `entity_type` |
+
+> `entity_type`: `story` \| `bug` \| `task`. Some filters apply only to specific entities (e.g. `severity` -> bug, `story_id` -> task).
+
+### Webhooks
+
+> TAPD Open API does not expose webhook management endpoints. Webhook tools have been removed. Read the `tapd://webhooks/help` resource for instructions on configuring webhooks via the TAPD web UI.
 
 ### Image Download / 图片下载
 
@@ -429,7 +427,7 @@ The following fields are returned in every task response (`data.item`):
 |---|---|---|
 | `tapd_download_image` | Download TAPD images requiring auth (prototype screenshots, mockups), returns base64 for AI analysis | `url` |
 
-> `tapd_get_story`, `tapd_get_bug`, `tapd_get_task` auto-download up to 3 images from descriptions. Use this tool for additional images.
+> `tapd_get_story`, `tapd_get_bug`, `tapd_get_task` automatically download description images to disk (parallel) and replace URLs with local file paths. Set `download_images: false` to inline images as base64 instead.
 
 ### Health Check / 健康检查
 

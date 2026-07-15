@@ -17,6 +17,16 @@ export class TapdApiClient {
     this.maxRetries = retries;
   }
 
+  /** Base API URL (e.g. `https://api.tapd.cn`). */
+  getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  /** Current OAuth access token, refreshing on demand. Use for image downloads that need auth. */
+  getAuthToken(): Promise<string> {
+    return this.authManager.getToken();
+  }
+
   async request<T>(
     method: string,
     endpoint: string,
@@ -102,13 +112,5 @@ export class TapdApiClient {
 
   post<T>(endpoint: string, body?: Record<string, unknown>): Promise<T> {
     return this.request<T>('POST', endpoint, undefined, body);
-  }
-
-  put<T>(endpoint: string, body?: Record<string, unknown>): Promise<T> {
-    return this.request<T>('PUT', endpoint, undefined, body);
-  }
-
-  delete<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
-    return this.request<T>('DELETE', endpoint, params);
   }
 }

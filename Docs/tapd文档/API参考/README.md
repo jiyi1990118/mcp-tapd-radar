@@ -93,8 +93,7 @@ curl -H 'Authorization: Bearer YOUR_ACCESS_TOKEN' \
 | `tapd_update_task` | `POST /tasks` | [16-任务API.md](./16-任务API.md#更新任务) |
 | `tapd_batch_update_tasks` | `POST /tasks/batch_update_task` | [16-任务API.md](./16-任务API.md#批量更新任务) |
 | `tapd_list_iterations` | `GET /iterations` | [17-迭代API.md](./17-迭代API.md#获取迭代) |
-| `tapd_lock_iteration` | `POST /iterations/lock` | [17-迭代API.md](./17-迭代API.md#锁定迭代) |
-| `tapd_unlock_iteration` | `POST /iterations/unlock` | [17-迭代API.md](./17-迭代API.md#解锁迭代) |
+| `tapd_set_iteration_lock` | `POST /iterations/lock` \| `POST /iterations/unlock` | [17-迭代API.md](./17-迭代API.md#锁定迭代) |
 | `tapd_create_comment` | `POST /comments` | [18-评论API.md](./18-评论API.md#添加评论) |
 | `tapd_list_users` | `GET /workspaces/users` | [19-用户API.md](./19-用户API.md#获取项目成员列表) |
 | `tapd_list_workspaces` | `GET /workspaces/projects` | [20-工作空间API.md](./20-工作空间API.md#获取公司项目列表) |

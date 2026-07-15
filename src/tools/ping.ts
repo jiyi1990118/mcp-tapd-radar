@@ -7,7 +7,7 @@ export function registerPingTool(server: McpServer, client: TapdApiClient): void
     'tapd_ping',
     {
       title: 'Ping TAPD API',
-      description: 'Check connectivity to the TAPD API. Returns server status and authentication validity.',
+      description: 'Health check: verify connectivity to the TAPD API and that credentials (TAPD_CLIENT_ID/SECRET) are valid. Returns ok if reachable & authenticated. Call this first if other tools return auth/connection errors.',
       inputSchema: {},
     },
     async () => {

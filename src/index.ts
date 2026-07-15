@@ -9,7 +9,7 @@ import { registerStoryTools } from './tools/story.js';
 import { registerBugTools } from './tools/bug.js';
 import { registerTaskTools } from './tools/task.js';
 import { registerIterationTools } from './tools/iteration.js';
-import { registerWebhookTools } from './tools/webhook.js';
+import { registerWorkitemTools } from './tools/workitem.js';
 import { registerWorkspaceTools } from './tools/workspace.js';
 import { registerCommentTools } from './tools/comment.js';
 import { registerUserTools } from './tools/user.js';
@@ -43,7 +43,7 @@ async function main() {
   const server = new McpServer(
     {
       name: 'tapd-mcp-radar',
-      version: '1.0.0',
+      version: '1.2.0',
     },
     {
       capabilities: {
@@ -58,7 +58,7 @@ async function main() {
   registerBugTools(server, client);
   registerTaskTools(server, client);
   registerIterationTools(server, client);
-  registerWebhookTools(server, client);
+  registerWorkitemTools(server, client);
   registerWorkspaceTools(server, client);
   registerCommentTools(server, client);
   registerUserTools(server, client);

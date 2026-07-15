@@ -115,7 +115,6 @@ npm run build
 | `tapd_create_story` | 创建新需求 | `workspace_id`, `name` |
 | `tapd_update_story` | 更新需求字段 | `workspace_id`, `story_id` |
 | `tapd_batch_update_stories` | 批量更新多个需求 | `workspace_id`, `story_ids` |
-| `tapd_count_stories` | 统计符合条件的需求数量 | `workspace_id` |
 | `tapd_delete_story` | 删除需求（设置 status=deleted） | `workspace_id`, `story_id` |
 
 #### 需求创建/更新字段
@@ -194,7 +193,6 @@ npm run build
 | `tapd_create_bug` | 创建新缺陷 | `workspace_id`, `title` |
 | `tapd_update_bug` | 更新缺陷字段 | `workspace_id`, `bug_id` |
 | `tapd_batch_update_bugs` | 批量更新多个缺陷 | `workspace_id`, `bug_ids` |
-| `tapd_count_bugs` | 统计符合条件的缺陷数量 | `workspace_id` |
 | `tapd_delete_bug` | 删除缺陷（设置 status=deleted） | `workspace_id`, `bug_id` |
 
 #### 缺陷创建/更新字段
@@ -263,7 +261,6 @@ npm run build
 | `tapd_create_task` | 创建新任务 | `workspace_id`, `name` |
 | `tapd_update_task` | 更新任务字段 | `workspace_id`, `task_id` |
 | `tapd_batch_update_tasks` | 批量更新多个任务 | `workspace_id`, `task_ids` |
-| `tapd_count_tasks` | 统计符合条件的任务数量 | `workspace_id` |
 | `tapd_delete_task` | 删除任务（设置 status=deleted） | `workspace_id`, `task_id` |
 
 #### 任务创建/更新字段
@@ -387,8 +384,7 @@ npm run build
 |---|---|---|
 | `tapd_list_iterations` | 查询迭代列表，支持按名称/状态/时间过滤 | `workspace_id` |
 | `tapd_get_iteration` | 获取迭代详情 | `workspace_id`, `iteration_id` |
-| `tapd_lock_iteration` | 锁定迭代（需特殊权限） | `workspace_id`, `iteration_id` |
-| `tapd_unlock_iteration` | 解锁迭代（需特殊权限） | `workspace_id`, `iteration_id` |
+| `tapd_set_iteration_lock` | 锁定或解锁迭代（需特殊权限） | `workspace_id`, `iteration_id`, `locked` |
 
 ### 项目空间 (Workspace)
 
@@ -413,15 +409,17 @@ npm run build
 | `tapd_list_users` | 查询项目成员列表 | `workspace_id` |
 | `tapd_get_user` | 获取成员详情 | `workspace_id`, `user_id` |
 
-### Webhook 管理（仅本地存储）
-
-> ⚠️ TAPD 开放 API 不提供 Webhook 管理端点。以下工具仅操作本地内存存储，用于记录配置信息。实际的 Webhook 配置需通过 TAPD 网页界面完成。
+### 工作项计数 (Workitem Count)
 
 | 工具 | 说明 | 必填 |
 |---|---|---|
-| `tapd_list_webhooks` | 列出本地记录的 Webhook 配置 | `workspace_id` |
-| `tapd_create_webhook` | 在本地记录 Webhook 配置 | `workspace_id`, `url`, `events` |
-| `tapd_delete_webhook` | 删除本地 Webhook 记录 | `webhook_id` |
+| `tapd_count_workitems` | 统计需求/缺陷/任务数量 | `workspace_id`, `entity_type` |
+
+> `entity_type`：`story` | `bug` | `task`。部分过滤条件仅适用于特定实体（如 `severity` 仅用于 bug，`story_id` 仅用于 task）。
+
+### Webhook
+
+> TAPD 开放 API 不提供 Webhook 管理端点。Webhook 工具已移除。请读取 `tapd://webhooks/help` 资源了解如何通过 TAPD 网页界面配置 Webhook。
 
 ### 图片下载 (Image)
 
@@ -429,7 +427,7 @@ npm run build
 |---|---|---|
 | `tapd_download_image` | 下载需要认证的 TAPD 图片（原型图、截图），返回 base64 供 AI 分析 | `url` |
 
-> `tapd_get_story`、`tapd_get_bug`、`tapd_get_task` 会自动下载描述中的前 3 张图片。如需下载更多图片，请使用此工具。
+> `tapd_get_story`、`tapd_get_bug`、`tapd_get_task` 会自动将描述中的图片下载到本地（并行），并将 URL 替换为本地文件路径。设置 `download_images: false` 可改为内联 base64。
 
 ### 健康检查
 

@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .env
+.tapd-images*/
 *.js.map
 *.d.ts
 *.d.ts.map

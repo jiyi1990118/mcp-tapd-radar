@@ -15,3 +15,17 @@ export function pickDefined<T extends Record<string, unknown>>(
   }
   return result;
 }
+
+/**
+ * Unwrap a single-key TAPD wrapper object: `{ Story: {...} }` -> `{...}`.
+ * Returns the input unchanged if it is not a single-key wrapper.
+ */
+export function unwrapTapdEntity(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record);
+  if (keys.length === 1 && record[keys[0]] && typeof record[keys[0]] === 'object') {
+    return record[keys[0]];
+  }
+  return value;
+}

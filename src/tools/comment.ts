@@ -25,13 +25,13 @@ export function registerCommentTools(server: McpServer, client: TapdApiClient): 
     'tapd_list_comments',
     {
       title: 'List TAPD Comments',
-      description: 'List comments on a TAPD entity (story, bug, or task).',
+      description: 'List comments on a TAPD story, bug, or task. Returns the discussion thread. Use tapd_list_stories/bugs/tasks first to find the entry_id.',
       inputSchema: {
-        workspace_id: z.string().describe('TAPD workspace/project ID'),
-        entry_type: z.string().describe('Entity type: story|bug|task'),
-        entry_id: z.string().describe('The ID of the story, bug, or task'),
-        limit: z.number().optional().describe('Results per page (default 30, max 200)'),
-        page: z.number().optional().describe('Page number (starts from 1)'),
+        workspace_id: z.string().describe('TAPD workspace/project ID / 项目ID'),
+        entry_type: z.enum(['story', 'bug', 'task']).describe('Entity type to comment on / 实体类型: story|bug|task'),
+        entry_id: z.string().describe('The ID of the story, bug, or task / 实体ID'),
+        limit: z.number().optional().describe('Results per page / 每页数量（默认30，最大200）'),
+        page: z.number().optional().describe('Page number / 页码（从1开始）'),
       },
     },
     async (args) => {
@@ -63,13 +63,13 @@ export function registerCommentTools(server: McpServer, client: TapdApiClient): 
     'tapd_create_comment',
     {
       title: 'Create TAPD Comment',
-      description: 'Add a comment to a TAPD story, bug, or task.',
+      description: 'Add a comment to a TAPD story, bug, or task (for discussion/notes). Use tapd_list_comments to view existing thread.',
       inputSchema: {
-        workspace_id: z.string().describe('TAPD workspace/project ID'),
-        entry_type: z.string().describe('Entity type: story|bug|task'),
-        entry_id: z.string().describe('The ID of the story, bug, or task to comment on'),
-        description: z.string().describe('Comment content'),
-        author: z.string().optional().describe('Comment author (defaults to current user)'),
+        workspace_id: z.string().describe('TAPD workspace/project ID / 项目ID'),
+        entry_type: z.enum(['story', 'bug', 'task']).describe('Entity type to comment on / 实体类型: story|bug|task'),
+        entry_id: z.string().describe('The ID of the story, bug, or task to comment on / 实体ID'),
+        description: z.string().describe('Comment content / 评论内容 (text or HTML)'),
+        author: z.string().optional().describe('Comment author / 评论作者 (TAPD user name, defaults to current user)'),
       },
     },
     async (args) => {

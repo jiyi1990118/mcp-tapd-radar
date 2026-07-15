@@ -137,7 +137,7 @@ Please:
 
 Please:
 1. List all new/unresolved bugs using tapd_list_bugs with status filter
-2. List bug counts by severity and priority using tapd_count_bugs
+2. List bug counts by severity and priority using tapd_count_workitems with entity_type=bug
 3. For each bug, suggest:
    - Appropriate severity level
    - Priority level

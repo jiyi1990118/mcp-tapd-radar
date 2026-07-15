@@ -10,15 +10,15 @@ export function registerIterationTools(server: McpServer, client: TapdApiClient)
     'tapd_list_iterations',
     {
       title: 'List TAPD Iterations',
-      description: 'List iterations (sprints) in a TAPD workspace. Returns an array of iteration objects.',
+      description: 'List iterations (sprints) in a TAPD workspace. Returns iteration id, name, status, start/end dates. Use tapd_get_iteration for a single iteration detail by ID.',
       inputSchema: {
-        workspace_id: z.string().describe('TAPD workspace/project ID'),
-        status: z.string().optional().describe('Filter by status: open|done'),
-        name: z.string().optional().describe('Fuzzy search by iteration name'),
-        created: z.string().optional().describe('Filter by created time. Supports >date, <date, date~date'),
-        modified: z.string().optional().describe('Filter by modified time. Supports >date, <date, date~date'),
-        limit: z.number().optional().describe('Results per page (default 30, max 200)'),
-        page: z.number().optional().describe('Page number (starts from 1)'),
+        workspace_id: z.string().describe('TAPD workspace/project ID / 项目ID (from tapd_list_workspaces or TAPD URL, e.g. 48801209)'),
+        status: z.string().optional().describe('Filter by status / 按状态过滤: open(进行中)|done(已完成)'),
+        name: z.string().optional().describe('Fuzzy search by iteration name / 按迭代名称模糊搜索'),
+        created: z.string().optional().describe('Created time filter / 创建时间. Format: ">2026-01-01", "<2026-06-30", or "2026-01-01~2026-06-30"'),
+        modified: z.string().optional().describe('Modified time filter / 最后修改时间. Format: ">2026-01-01", "<2026-06-30", or "2026-01-01~2026-06-30"'),
+        limit: z.number().optional().describe('Results per page / 每页数量（默认30，最大200）'),
+        page: z.number().optional().describe('Page number / 页码（从1开始）'),
       },
     },
     async (args) => {
@@ -51,10 +51,10 @@ export function registerIterationTools(server: McpServer, client: TapdApiClient)
     'tapd_get_iteration',
     {
       title: 'Get TAPD Iteration Detail',
-      description: 'Get detailed information about a specific TAPD iteration by its ID.',
+      description: 'Get detailed information about a specific TAPD iteration by its ID. Use tapd_list_iterations first to find the iteration_id.',
       inputSchema: {
-        workspace_id: z.string().describe('TAPD workspace/project ID'),
-        iteration_id: z.string().describe('The iteration ID to retrieve'),
+        workspace_id: z.string().describe('TAPD workspace/project ID / 项目ID'),
+        iteration_id: z.string().describe('The iteration ID to retrieve / 迭代ID (from tapd_list_iterations "id" field)'),
       },
     },
     async (args) => {
@@ -71,47 +71,34 @@ export function registerIterationTools(server: McpServer, client: TapdApiClient)
   );
 
   server.registerTool(
-    'tapd_lock_iteration',
+    'tapd_set_iteration_lock',
     {
-      title: 'Lock TAPD Iteration',
-      description: 'Lock an iteration to prevent modifications to stories, bugs, and tasks within it.',
+      title: 'Lock or Unlock TAPD Iteration',
+      description: 'Lock an iteration (makes its stories/bugs/tasks read-only, e.g. a frozen sprint) or unlock it. Set locked=true to lock, locked=false to unlock. Lock/unlock require special app permissions; a 403 means the app lacks them.',
       inputSchema: {
-        workspace_id: z.string().describe('TAPD workspace/project ID'),
-        iteration_id: z.string().describe('The iteration ID to lock'),
+        workspace_id: z.string().describe('TAPD workspace/project ID / 项目ID'),
+        iteration_id: z.string().describe('The iteration ID to lock or unlock / 迭代ID'),
+        locked: z.boolean().describe('true = lock (make read-only), false = unlock (allow modifications)'),
       },
     },
     async (args) => {
+      const action = args.locked ? 'lock' : 'unlock';
+      const summary = args.locked
+        ? `Iteration ${args.iteration_id} locked. Stories, bugs, and tasks in this iteration are now read-only.`
+        : `Iteration ${args.iteration_id} unlocked. Stories, bugs, and tasks can now be modified.`;
       try {
-        await client.post('/iterations/lock', {
+        await client.post(`/iterations/${action}`, {
           workspace_id: args.workspace_id,
           id: args.iteration_id,
         });
-        return toMcpText({ content: [{ type: 'text', text: `✅ Iteration ${args.iteration_id} locked successfully. Stories, bugs, and tasks in this iteration are now read-only.` }] });
-      } catch (error) {
-        return toMcpError(buildErrorResponse({ tool: 'tapd_lock_iteration', error, workspaceId: args.workspace_id, entityType: 'iteration', entityId: args.iteration_id }));
-      }
-    }
-  );
-
-  server.registerTool(
-    'tapd_unlock_iteration',
-    {
-      title: 'Unlock TAPD Iteration',
-      description: 'Unlock an iteration to allow modifications again.',
-      inputSchema: {
-        workspace_id: z.string().describe('TAPD workspace/project ID'),
-        iteration_id: z.string().describe('The iteration ID to unlock'),
-      },
-    },
-    async (args) => {
-      try {
-        await client.post('/iterations/unlock', {
-          workspace_id: args.workspace_id,
-          id: args.iteration_id,
+        return toMcpText({
+          ok: true,
+          tool: 'tapd_set_iteration_lock',
+          summary,
+          data: { iteration_id: args.iteration_id, locked: args.locked },
         });
-        return toMcpText({ content: [{ type: 'text', text: `✅ Iteration ${args.iteration_id} unlocked successfully. Stories, bugs, and tasks can now be modified.` }] });
       } catch (error) {
-        return toMcpError(buildErrorResponse({ tool: 'tapd_unlock_iteration', error, workspaceId: args.workspace_id, entityType: 'iteration', entityId: args.iteration_id }));
+        return toMcpError(buildErrorResponse({ tool: 'tapd_set_iteration_lock', error, workspaceId: args.workspace_id, entityType: 'iteration', entityId: args.iteration_id }));
       }
     }
   );

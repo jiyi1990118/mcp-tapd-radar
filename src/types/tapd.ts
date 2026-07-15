@@ -158,16 +158,6 @@ export interface Workspace {
   [key: string]: string | undefined;
 }
 
-export interface Webhook {
-  id: string;
-  workspace_id: string;
-  url: string;
-  event: string;
-  secret?: string;
-  created: string;
-  [key: string]: string | undefined;
-}
-
 export interface Comment {
   id: string;
   title: string;
@@ -249,21 +239,27 @@ export type BugStatus =
   | 'closed'
   | 'reopened'
   | 'rejected'
-  | 'postponed';
+  | 'postponed'
+  | 'verified';
 
 export type BugSeverity = 'fatal' | 'serious' | 'normal' | 'slight' | 'suggest';
 export type BugPriority = 'urgent' | 'high' | 'medium' | 'low' | 'insignificant';
 
 /**
  * TAPD task status values.
- * Note: Status values are workflow-configurable per project.
+ * Note: Status values are workflow-configurable per project. The values below
+ * are the most common ones (see Docs/tapd文档/API参考/16-任务API.md).
+ *
+ * Common values:
+ * - `open` - 打开
+ * - `progressing` - 进行中
+ * - `done` - 已完成
+ * - `suspended` - 已暂停
  */
 export type TaskStatus =
-  | 'new'
-  | 'in_progress'
-  | 'resolved'
-  | 'closed'
-  | 'reopened'
-  | 'rejected';
+  | 'open'
+  | 'progressing'
+  | 'done'
+  | 'suspended';
 
 export type IterationStatus = 'open' | 'done';

@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { buildTapdDetailContent, downloadTapdImage, extractImageUrls } from '../src/utils/tapdImages.js';
 
 describe('extractImageUrls', () => {
@@ -171,5 +174,99 @@ describe('buildTapdDetailContent', () => {
       data: Buffer.from(new Uint8Array([9]).buffer).toString('base64'),
       mimeType: 'image/jpeg',
     });
+  });
+});
+
+describe('buildTapdDetailContent (disk mode)', () => {
+  it('downloads images in parallel, returns only text (no base64), and rewrites description URLs to local paths', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'tapd-disk-'));
+    const fetcher = vi.fn(async (input: string | URL | Request) => {
+      const url = input.toString();
+      const mime = url.includes('.png') ? 'image/png' : 'image/jpeg';
+      return new Response(new Uint8Array([1, 2, 3]).buffer, {
+        status: 200,
+        headers: { 'content-type': mime },
+      });
+    });
+
+    const story = {
+      Story: {
+        id: '1001',
+        name: 'Prototype review',
+        description: '<img src="https://api.tapd.cn/files/a.png"><img src="https://api.tapd.cn/files/b.jpg">',
+      },
+    };
+
+    const content = await buildTapdDetailContent(story, {
+      baseUrl: 'https://api.tapd.cn',
+      getToken: async () => 'access-token',
+      fetcher,
+      workspaceId: '48801209',
+      saveToDisk: true,
+      downloadDir: dir,
+      downloadLimit: 50,
+      concurrency: 5,
+    });
+
+    // No base64 image content blocks - only a single text block.
+    expect(content).toHaveLength(1);
+    expect(content[0].type).toBe('text');
+    const text = content[0].type === 'text' ? content[0].text : '';
+    const parsed = JSON.parse(text);
+
+    expect(parsed.image_resources.mode).toBe('disk');
+    expect(parsed.image_resources.downloaded).toBe(2);
+    expect(parsed.image_resources.failed).toBe(0);
+    expect(parsed.data.item.description).not.toContain('api.tapd.cn/files/a.png');
+    expect(parsed.data.item.description).toContain(dir);
+    // raw keeps all fields AND also has URLs rewritten to local paths (same as item).
+    expect(parsed.raw.Story.description).not.toContain('api.tapd.cn/files/a.png');
+    expect(parsed.raw.Story.description).toContain(dir);
+
+    // Both images should exist on disk.
+    const localA = parsed.data.item.description.match(/src="([^"]+a[^"]*\.png)"/)?.[1];
+    const localB = parsed.data.item.description.match(/src="([^"]+b[^"]*\.jpg)"/)?.[1];
+    expect(localA).toBeTruthy();
+    expect(localB).toBeTruthy();
+    await expect(fs.access(localA!)).resolves.toBeUndefined();
+    await expect(fs.access(localB!)).resolves.toBeUndefined();
+
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  it('returns only text with failure reports when downloads fail', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'tapd-disk-'));
+    const fetcher = vi.fn(async () => new Response('forbidden', {
+      status: 403,
+      headers: { 'content-type': 'text/html' },
+    }));
+
+    const story = {
+      Story: {
+        id: '1001',
+        name: 'x',
+        description: '<img src="https://api.tapd.cn/files/a.png">',
+      },
+    };
+
+    const content = await buildTapdDetailContent(story, {
+      baseUrl: 'https://api.tapd.cn',
+      getToken: async () => 'access-token',
+      fetcher,
+      workspaceId: '48801209',
+      saveToDisk: true,
+      downloadDir: dir,
+      downloadLimit: 50,
+      concurrency: 2,
+    });
+
+    expect(content).toHaveLength(1);
+    const parsed = JSON.parse(content[0].type === 'text' ? content[0].text : '');
+    expect(parsed.image_resources.failed).toBe(1);
+    expect(parsed.image_resources.errors).toHaveLength(1);
+    // URL left as remote in the description.
+    expect(parsed.data.item.description).toContain('api.tapd.cn/files/a.png');
+
+    await fs.rm(dir, { recursive: true, force: true });
   });
 });
